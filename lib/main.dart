@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'firebase_options.dart';
@@ -717,7 +718,7 @@ class _AddProductPageState extends State<AddProductPage> {
       if (raw.isNotEmpty) {
         final number = int.tryParse(raw);
         if (number != null) {
-          result['sellingPrice'] = (number / (decimals == 0 ? 1 : 100)).toStringAsFixed(decimals);
+          result['sellingPrice'] = (number / (decimals == 0 ? 1 : math.pow(10, decimals))).toStringAsFixed(decimals);
         }
       }
     }
