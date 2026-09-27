@@ -264,9 +264,48 @@ class _AddProductPageState extends State<AddProductPage> {
 
     if (!mounted || scannedCode == null || scannedCode.isEmpty) return;
 
+    await _fillProductFromBarcode(scannedCode);
+  }
+
+  Future<void> _fillProductFromBarcode(String barcode) async {
     setState(() {
-      _barcodeController.text = scannedCode;
+      _barcodeController.text = barcode;
     });
+
+    try {
+      final result = await FirebaseFirestore.instance
+          .collection('products')
+          .where('barcode', isEqualTo: barcode)
+          .limit(1)
+          .get();
+
+      if (!mounted) return;
+
+      if (result.docs.isNotEmpty) {
+        final data = result.docs.first.data();
+
+        setState(() {
+          _nameController.text = (data['name'] ?? '').toString();
+          _categoryController.text = (data['category'] ?? '').toString();
+          _buyPriceController.text =
+              (data['buyPrice'] ?? '').toString();
+          _sellingPriceController.text =
+              (data['sellingPrice'] ?? '').toString();
+        });
+
+        _showMessage('Barcode එකට අදාළ භාණ්ඩ විස්තර Auto Fill කළා.');
+      } else {
+        _showMessage(
+          'මේ Barcode එකට භාණ්ඩයක් කලින් Save කරලා නැහැ. අලුත් විස්තර ඇතුළත් කරන්න.',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage(
+        'Barcode එකෙන් භාණ්ඩ විස්තර සොයන්න බැරි වුණා.',
+        isError: true,
+      );
+    }
   }
 
   Future<void> _saveProduct() async {
