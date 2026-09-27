@@ -43,6 +43,13 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  void _openStock(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const StockPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -108,7 +115,7 @@ class HomePage extends StatelessWidget {
                     icon: Icons.inventory_2,
                     title: 'භාණ්ඩ තොගය',
                     subtitle: 'Stock',
-                    onTap: () {},
+                    onTap: () => _openStock(context),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -222,6 +229,73 @@ class HomePage extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class StockPage extends StatelessWidget {
+  const StockPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('භාණ්ඩ තොගය', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance.collection('products').orderBy('name').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) return const Center(child: Text('Stock data ලබාගැනීමේදී දෝෂයක් ඇතිවුණා.'));
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          final docs = snapshot.data?.docs ?? [];
+          if (docs.isEmpty) return const Center(child: Text('තවම භාණ්ඩ Save කරලා නැහැ.', style: TextStyle(fontSize: 17, color: Colors.grey)));
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final data = docs[index].data();
+              final name = (data['name'] ?? 'නම නැත').toString();
+              final barcode = (data['barcode'] ?? '').toString();
+              final category = (data['category'] ?? '').toString();
+              final quantity = (data['stockQuantity'] as num?)?.toInt() ?? 0;
+              final limit = (data['lowStockLimit'] as num?)?.toInt() ?? 5;
+              final sellingPrice = (data['sellingPrice'] as num?)?.toDouble() ?? 0;
+              final isOut = quantity <= 0;
+              final isLow = quantity > 0 && quantity <= limit;
+              final statusColor = isOut ? Colors.red : (isLow ? Colors.orange : Colors.green);
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: CircleAvatar(
+                    backgroundColor: statusColor.withValues(alpha: 0.12),
+                    child: Icon(isOut ? Icons.remove_shopping_cart : Icons.inventory_2, color: statusColor),
+                  ),
+                  title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Text([
+                      if (category.isNotEmpty) 'Category: $category',
+                      if (barcode.isNotEmpty) 'Barcode: $barcode',
+                      'Selling: Rs. ${sellingPrice.toStringAsFixed(2)}',
+                    ].join('\n')),
+                  ),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('$quantity', style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold, color: statusColor)),
+                      Text(isOut ? 'තොග අවසන්' : (isLow ? 'අඩු තොග' : 'තොග තිබේ'), style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
