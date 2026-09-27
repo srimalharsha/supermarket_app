@@ -7,6 +7,19 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'firebase_options.dart';
 
+const List<String> supermarketCategories = [
+  'සියලුම භාණ්ඩ',
+  'ආහාර ද්‍රව්‍ය',
+  'බීම වර්ග',
+  'ස්නැක්ස් හා බිස්කට්',
+  'කිරි හා ශීත කළ',
+  'ගෘහස්ථ භාණ්ඩ',
+  'පෞද්ගලික සත්කාර',
+  'ළදරු භාණ්ඩ',
+  'ලිපි ද්‍රව්‍ය',
+  'වෙනත්',
+];
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -22,7 +35,7 @@ class SupermarketApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Supermarket App',
+      title: 'සුපිරි වෙළඳසැල් යෙදුම',
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.green,
@@ -55,7 +68,7 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          '🏪 Supermarket',
+          '🏪 සුපිරි වෙළඳසැල',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -64,7 +77,7 @@ class HomePage extends StatelessWidget {
             padding: EdgeInsets.only(right: 12),
             child: Center(
               child: Text(
-                'Designed by Srimal Harsha',
+                'නිර්මාණය: Srimal Harsha',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -101,7 +114,7 @@ class HomePage extends StatelessWidget {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Supermarket Management System',
+                    'සුපිරි වෙළඳසැල් කළමනාකරණ පද්ධතිය',
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ],
@@ -114,7 +127,7 @@ class HomePage extends StatelessWidget {
                   child: _MenuCard(
                     icon: Icons.inventory_2,
                     title: 'භාණ්ඩ තොගය',
-                    subtitle: 'Stock',
+                    subtitle: 'තොගය'
                     onTap: () => _openStock(context),
                   ),
                 ),
@@ -123,7 +136,7 @@ class HomePage extends StatelessWidget {
                   child: _MenuCard(
                     icon: Icons.add_box,
                     title: 'අලුත් භාණ්ඩ',
-                    subtitle: 'Add Product',
+                    subtitle: 'භාණ්ඩ එකතු කරන්න'
                     onTap: () => _openAddProduct(context),
                   ),
                 ),
@@ -136,7 +149,7 @@ class HomePage extends StatelessWidget {
                   child: _MenuCard(
                     icon: Icons.receipt_long,
                     title: 'අලුත් බිල්පත',
-                    subtitle: 'New Bill',
+                    subtitle: 'අලුත් බිල්පත'
                     onTap: () {},
                   ),
                 ),
@@ -144,8 +157,8 @@ class HomePage extends StatelessWidget {
                 Expanded(
                   child: _MenuCard(
                     icon: Icons.qr_code_scanner,
-                    title: 'Barcode Scan',
-                    subtitle: 'Scan Product',
+                    title: 'බාර්කෝඩ් ස්කෑන්'
+                    subtitle: 'භාණ්ඩය ස්කෑන් කරන්න'
                     onTap: () {},
                   ),
                 ),
@@ -211,7 +224,7 @@ class HomePage extends StatelessWidget {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'අඩු තොග ඇති භාණ්ඩ මෙතන පෙන්වනු ඇත.',
+                          'අඩු තොග ඇති භාණ්ඩ මෙහි පෙන්වනු ඇත.',
                           style: TextStyle(color: Colors.grey),
                         ),
                       ],
@@ -234,66 +247,180 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class StockPage extends StatelessWidget {
+class StockPage extends StatefulWidget {
   const StockPage({super.key});
+
+  @override
+  State<StockPage> createState() => _StockPageState();
+}
+
+class _StockPageState extends State<StockPage> {
+  String _selectedCategory = 'සියලුම භාණ්ඩ';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('භාණ්ඩ තොගය', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'භාණ්ඩ තොගය',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('products').orderBy('name').snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('products')
+            .orderBy('name')
+            .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.hasError) return const Center(child: Text('Stock data ලබාගැනීමේදී දෝෂයක් ඇතිවුණා.'));
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (snapshot.hasError) {
+            return const Center(
+              child: Text('භාණ්ඩ තොග දත්ත ලබාගැනීමේදී දෝෂයක් ඇතිවුණා.'),
+            );
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
           final docs = snapshot.data?.docs ?? [];
-          if (docs.isEmpty) return const Center(child: Text('තවම භාණ්ඩ Save කරලා නැහැ.', style: TextStyle(fontSize: 17, color: Colors.grey)));
+          if (docs.isEmpty) {
+            return const Center(
+              child: Text(
+                'තවම භාණ්ඩ සුරැකලා නැහැ.',
+                style: TextStyle(fontSize: 17, color: Colors.grey),
+              ),
+            );
+          }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final data = docs[index].data();
-              final name = (data['name'] ?? 'නම නැත').toString();
-              final barcode = (data['barcode'] ?? '').toString();
-              final category = (data['category'] ?? '').toString();
-              final quantity = (data['stockQuantity'] as num?)?.toInt() ?? 0;
-              final limit = (data['lowStockLimit'] as num?)?.toInt() ?? 5;
-              final sellingPrice = (data['sellingPrice'] as num?)?.toDouble() ?? 0;
-              final isOut = quantity <= 0;
-              final isLow = quantity > 0 && quantity <= limit;
-              final statusColor = isOut ? Colors.red : (isLow ? Colors.orange : Colors.green);
+          final filteredDocs = _selectedCategory == 'සියලුම භාණ්ඩ'
+              ? docs
+              : docs.where((doc) {
+                  final category = (doc.data()['category'] ?? '').toString();
+                  return category == _selectedCategory;
+                }).toList();
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: CircleAvatar(
-                    backgroundColor: statusColor.withValues(alpha: 0.12),
-                    child: Icon(isOut ? Icons.remove_shopping_cart : Icons.inventory_2, color: statusColor),
+          return Column(
+            children: [
+              SizedBox(
+                height: 58,
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                  title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 5),
-                    child: Text([
-                      if (category.isNotEmpty) 'Category: $category',
-                      if (barcode.isNotEmpty) 'Barcode: $barcode',
-                      'Selling: Rs. ${sellingPrice.toStringAsFixed(2)}',
-                    ].join('\n')),
-                  ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('$quantity', style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold, color: statusColor)),
-                      Text(isOut ? 'තොග අවසන්' : (isLow ? 'අඩු තොග' : 'තොග තිබේ'), style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: supermarketCategories.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 7),
+                  itemBuilder: (context, index) {
+                    final category = supermarketCategories[index];
+                    final selected = category == _selectedCategory;
+                    return ChoiceChip(
+                      label: Text(category),
+                      selected: selected,
+                      onSelected: (_) {
+                        setState(() => _selectedCategory = category);
+                      },
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: filteredDocs.isEmpty
+                    ? Center(
+                        child: Text(
+                          '“$_selectedCategory” යටතේ භාණ්ඩ නැහැ.',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: filteredDocs.length,
+                        itemBuilder: (context, index) {
+                          final data = filteredDocs[index].data();
+                          final name =
+                              (data['name'] ?? 'නම නැත').toString();
+                          final barcode =
+                              (data['barcode'] ?? '').toString();
+                          final category =
+                              (data['category'] ?? '').toString();
+                          final quantity =
+                              (data['stockQuantity'] as num?)?.toInt() ?? 0;
+                          final limit =
+                              (data['lowStockLimit'] as num?)?.toInt() ?? 5;
+                          final sellingPrice =
+                              (data['sellingPrice'] as num?)?.toDouble() ?? 0;
+                          final isOut = quantity <= 0;
+                          final isLow = quantity > 0 && quantity <= limit;
+                          final statusColor = isOut
+                              ? Colors.red
+                              : (isLow ? Colors.orange : Colors.green);
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              leading: CircleAvatar(
+                                backgroundColor:
+                                    statusColor.withValues(alpha: 0.12),
+                                child: Icon(
+                                  isOut
+                                      ? Icons.remove_shopping_cart
+                                      : Icons.inventory_2,
+                                  color: statusColor,
+                                ),
+                              ),
+                              title: Text(
+                                name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 5),
+                                child: Text([
+                                  if (category.isNotEmpty)
+                                    'වර්ගය: $category',
+                                  if (barcode.isNotEmpty)
+                                    'බාර්කෝඩ්: $barcode',
+                                  'විකුණුම් මිල: රු. ${sellingPrice.toStringAsFixed(2)}',
+                                ].join('\n')),
+                              ),
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '$quantity',
+                                    style: TextStyle(
+                                      fontSize: 21,
+                                      fontWeight: FontWeight.bold,
+                                      color: statusColor,
+                                    ),
+                                  ),
+                                  Text(
+                                    isOut
+                                        ? 'තොග අවසන්'
+                                        : (isLow ? 'අඩු තොග' : 'තොග තිබේ'),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: statusColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
           );
         },
       ),
@@ -319,6 +446,10 @@ class _AddProductPageState extends State<AddProductPage> {
   final _lowStockController = TextEditingController(text: '5');
 
   bool _saving = false;
+
+  bool _isAllowedCategory(String value) {
+    return supermarketCategories.skip(1).contains(value);
+  }
 
   @override
   void dispose() {
@@ -363,13 +494,15 @@ class _AddProductPageState extends State<AddProductPage> {
 
         setState(() {
           _nameController.text = (data['name'] ?? '').toString();
-          _categoryController.text = (data['category'] ?? '').toString();
+          final savedCategory = (data['category'] ?? '').toString();
+          _categoryController.text =
+              _isAllowedCategory(savedCategory) ? savedCategory : 'වෙනත්';
           _buyPriceController.text = (data['buyPrice'] ?? '').toString();
           _sellingPriceController.text =
               (data['sellingPrice'] ?? '').toString();
         });
 
-        _showMessage('අපේ Stock database එකෙන් විස්තර Auto Fill කළා.');
+        _showMessage('අපේ තොග දත්ත වලින් විස්තර ස්වයංක්‍රීයව පුරවා ගත්තා.');
         return;
       }
     } catch (_) {
@@ -412,14 +545,16 @@ class _AddProductPageState extends State<AddProductPage> {
                 _nameController.text = name;
               }
               if (categories.isNotEmpty) {
-                _categoryController.text = categories.split(',').first.trim();
+                final onlineCategory = categories.split(',').first.trim();
+                _categoryController.text =
+                    _isAllowedCategory(onlineCategory) ? onlineCategory : 'වෙනත්';
               } else if (brand.isNotEmpty) {
-                _categoryController.text = brand;
+                _categoryController.text = 'වෙනත්';
               }
             });
 
             _showMessage(
-              'Online barcode database එකෙන් Product Name සහ Category Auto Fill කළා. Buy/Sell Price අපේ shop price නිසා manually දාන්න.',
+              'අන්තර්ජාල බාර්කෝඩ් දත්ත ගබඩාවෙන් භාණ්ඩ නම සහ වර්ගය ස්වයංක්‍රීයව පුරවා ගත්තා. මිලදී ගැනීමේ සහ විකුණුම් මිල අපේ වෙළඳසැලට අදාළ නිසා ඔබ ඇතුළත් කරන්න.',
             );
             return;
           }
@@ -427,12 +562,12 @@ class _AddProductPageState extends State<AddProductPage> {
       }
 
       _showMessage(
-        'මේ Barcode එක public product database එකේ හමු වුණේ නැහැ. විස්තර manually ඇතුළත් කරන්න.',
+        'මේ බාර්කෝඩ් එක පොදු භාණ්ඩ දත්ත ගබඩාවේ හමු වුණේ නැහැ. විස්තර අතින් ඇතුළත් කරන්න.',
       );
     } catch (_) {
       if (!mounted) return;
       _showMessage(
-        'Online barcode database එකට සම්බන්ධ වීමට බැරි වුණා. විස්තර manually ඇතුළත් කරන්න.',
+        'අන්තර්ජාල බාර්කෝඩ් දත්ත ගබඩාවට සම්බන්ධ වීමට බැරි වුණා. විස්තර අතින් ඇතුළත් කරන්න.',
         isError: true,
       );
     }
@@ -469,7 +604,7 @@ class _AddProductPageState extends State<AddProductPage> {
       });
 
       if (!mounted) return;
-      _showMessage('භාණ්ඩය සාර්ථකව Save කළා.');
+      _showMessage('භාණ්ඩය සාර්ථකව සුරැකුවා.');
       _formKey.currentState!.reset();
       _nameController.clear();
       _barcodeController.clear();
@@ -480,7 +615,7 @@ class _AddProductPageState extends State<AddProductPage> {
       _lowStockController.text = '5';
     } catch (e) {
       if (!mounted) return;
-      _showMessage('Save කිරීමේදී දෝෂයක් ඇතිවුණා.', isError: true);
+      _showMessage('භාණ්ඩය සුරැකීමේදී දෝෂයක් ඇතිවුණා.', isError: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -515,7 +650,7 @@ class _AddProductPageState extends State<AddProductPage> {
           suffixIcon: onScan == null
               ? null
               : IconButton(
-                  tooltip: 'Camera එකෙන් Barcode Scan කරන්න',
+                  tooltip: 'කැමරාවෙන් බාර්කෝඩ් ස්කෑන් කරන්න',
                   icon: const Icon(Icons.camera_alt, color: Colors.green),
                   onPressed: onScan,
                 ),
@@ -568,7 +703,7 @@ class _AddProductPageState extends State<AddProductPage> {
             ),
             const SizedBox(height: 6),
             const Text(
-              'භාණ්ඩය Firebase Stock database එකට Save කරන්න.',
+              'භාණ්ඩය තොගයට සුරකින්න.',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 18),
@@ -580,21 +715,48 @@ class _AddProductPageState extends State<AddProductPage> {
             ),
             _field(
               controller: _barcodeController,
-              label: 'Barcode',
+              label: 'බාර්කෝඩ්',
               icon: Icons.qr_code,
               keyboardType: TextInputType.number,
               validator: _required,
               onScan: _scanBarcode,
             ),
-            _field(
-              controller: _categoryController,
-              label: 'Category',
-              icon: Icons.category_outlined,
-              validator: _required,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: DropdownButtonFormField<String>(
+                value: _isAllowedCategory(_categoryController.text)
+                    ? _categoryController.text
+                    : null,
+                decoration: InputDecoration(
+                  labelText: 'භාණ්ඩ වර්ගය',
+                  prefixIcon: const Icon(Icons.category_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+                items: supermarketCategories
+                    .skip(1)
+                    .map(
+                      (category) => DropdownMenuItem<String>(
+                        value: category,
+                        child: Text(category),
+                      ),
+                    )
+                    .toList(),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'භාණ්ඩ වර්ගයක් තෝරන්න' : null,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _categoryController.text = value);
+                  }
+                },
+              ),
             ),
             _field(
               controller: _buyPriceController,
-              label: 'Buy Price (Rs.)',
+              label: 'මිලදී ගැනීමේ මිල (රු.)',
               icon: Icons.shopping_cart_checkout,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
@@ -602,7 +764,7 @@ class _AddProductPageState extends State<AddProductPage> {
             ),
             _field(
               controller: _sellingPriceController,
-              label: 'Selling Price (Rs.)',
+              label: 'විකුණුම් මිල (රු.)',
               icon: Icons.sell_outlined,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
@@ -610,14 +772,14 @@ class _AddProductPageState extends State<AddProductPage> {
             ),
             _field(
               controller: _stockController,
-              label: 'Stock Quantity',
+              label: 'තොග ප්‍රමාණය',
               icon: Icons.inventory_2_outlined,
               keyboardType: TextInputType.number,
               validator: _integer,
             ),
             _field(
               controller: _lowStockController,
-              label: 'Low Stock Limit',
+              label: 'අඩු තොග සීමාව',
               icon: Icons.warning_amber_outlined,
               keyboardType: TextInputType.number,
               validator: _integer,
@@ -634,7 +796,7 @@ class _AddProductPageState extends State<AddProductPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.save),
-                label: Text(_saving ? 'Saving...' : 'භාණ්ඩය Save කරන්න'),
+                label: Text(_saving ? 'සුරකිමින්...' : 'භාණ්ඩය සුරකින්න'),
               ),
             ),
             const SizedBox(height: 20),
@@ -672,7 +834,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Barcode Scan'),
+        title: const Text('බාර්කෝඩ් ස්කෑන්'),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
       ),
@@ -698,7 +860,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
             right: 20,
             bottom: 40,
             child: Text(
-              'Barcode එක කොටුව ඇතුළට තබන්න. Scan වූ විගස Barcode field එකට ඇතුළත් වේ.',
+              'බාර්කෝඩ් එක කොටුව ඇතුළට තබන්න. ස්කෑන් වූ විගස බාර්කෝඩ් ක්ෂේත්‍රයට ඇතුළත් වේ.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,
