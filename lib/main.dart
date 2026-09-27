@@ -127,7 +127,7 @@ class HomePage extends StatelessWidget {
                   child: _MenuCard(
                     icon: Icons.inventory_2,
                     title: 'භාණ්ඩ තොගය',
-                    subtitle: 'තොගය'
+                    subtitle: 'තොගය',
                     onTap: () => _openStock(context),
                   ),
                 ),
@@ -136,7 +136,7 @@ class HomePage extends StatelessWidget {
                   child: _MenuCard(
                     icon: Icons.add_box,
                     title: 'අලුත් භාණ්ඩ',
-                    subtitle: 'භාණ්ඩ එකතු කරන්න'
+                    subtitle: 'භාණ්ඩ එකතු කරන්න',
                     onTap: () => _openAddProduct(context),
                   ),
                 ),
@@ -149,7 +149,7 @@ class HomePage extends StatelessWidget {
                   child: _MenuCard(
                     icon: Icons.receipt_long,
                     title: 'අලුත් බිල්පත',
-                    subtitle: 'අලුත් බිල්පත'
+                    subtitle: 'අලුත් බිල්පත',
                     onTap: () {},
                   ),
                 ),
@@ -157,8 +157,8 @@ class HomePage extends StatelessWidget {
                 Expanded(
                   child: _MenuCard(
                     icon: Icons.qr_code_scanner,
-                    title: 'බාර්කෝඩ් ස්කෑන්'
-                    subtitle: 'භාණ්ඩය ස්කෑන් කරන්න'
+                    title: 'බාර්කෝඩ් ස්කෑන්',
+                    subtitle: 'භාණ්ඩය ස්කෑන් කරන්න',
                     onTap: () {},
                   ),
                 ),
