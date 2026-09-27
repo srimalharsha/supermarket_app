@@ -732,9 +732,15 @@ class _AddProductPageState extends State<AddProductPage> {
   }
 
   Future<void> _fillProductFromBarcode(String barcode) async {
-    final gs1 = _parseGs1Barcode(barcode);
+    final scannedBarcode = barcode.trim();
+    if (scannedBarcode.isEmpty) return;
+
+    final gs1 = _parseGs1Barcode(scannedBarcode);
+
     setState(() {
-      _barcodeController.text = barcode;
+      _barcodeController.text = scannedBarcode;
+
+      // If the barcode itself contains expiry/price (GS1), use those first.
       if (gs1['expiryDate'] != null) {
         _expiryDateController.text = gs1['expiryDate']!;
       }
@@ -743,11 +749,13 @@ class _AddProductPageState extends State<AddProductPage> {
       }
     });
 
-    // 1. First check our own supermarket database.
+    // First use our own products database. This is the important part:
+    // once a barcode has been saved before, its buying price, selling price
+    // and expiry date will automatically appear on the next scan.
     try {
       final result = await FirebaseFirestore.instance
           .collection('products')
-          .where('barcode', isEqualTo: barcode)
+          .where('barcode', isEqualTo: scannedBarcode)
           .limit(1)
           .get();
 
@@ -758,32 +766,53 @@ class _AddProductPageState extends State<AddProductPage> {
 
         setState(() {
           _nameController.text = (data['name'] ?? '').toString();
+
           final savedCategory = (data['category'] ?? '').toString();
           _categoryController.text =
               _isAllowedCategory(savedCategory) ? savedCategory : 'වෙනත්';
-          _buyPriceController.text = (data['buyPrice'] ?? '').toString();
-          if (gs1['sellingPrice'] == null) {
-            _sellingPriceController.text =
-                (data['sellingPrice'] ?? '').toString();
+
+          // Our saved buying price belongs to this supermarket, so always
+          // restore it when this barcode is scanned again.
+          final buyPrice = data['buyPrice'];
+          if (buyPrice != null) {
+            _buyPriceController.text = buyPrice.toString();
           }
+
+          // A GS1 price is more specific than our saved value. Otherwise
+          // restore the supermarket's saved selling price.
+          if (gs1['sellingPrice'] == null) {
+            final sellingPrice = data['sellingPrice'];
+            if (sellingPrice != null) {
+              _sellingPriceController.text = sellingPrice.toString();
+            }
+          }
+
+          // Same rule for expiry: GS1 value wins, otherwise restore saved
+          // expiry date.
           if (gs1['expiryDate'] == null) {
-            _expiryDateController.text =
-                (data['expiryDate'] ?? '').toString();
+            final expiryDate = data['expiryDate'];
+            if (expiryDate != null) {
+              _expiryDateController.text = expiryDate.toString();
+            }
           }
         });
 
-        _showMessage('අපේ තොග දත්ත වලින් විස්තර ස්වයංක්‍රීයව පුරවා ගත්තා.');
+        _showMessage(
+          'බාර්කෝඩ් එකෙන් භාණ්ඩ නම, වර්ගය, මිලදී ගැනීමේ මිල, විකුණුම් මිල සහ කල් ඉකුත් වන දිනය ස්වයංක්‍රීයව පුරවා ගත්තා.',
+        );
         return;
       }
-    } catch (_) {
-      // If Firestore lookup fails, continue to the public barcode database.
+    } catch (e) {
+      // Continue to the public barcode database if our lookup is unavailable.
     }
 
-    // 2. If it is not in our database, look up the barcode in Open Food Facts.
+    // If this is a new barcode, get the general product information online.
+    // Shop-specific buying/selling prices cannot be reliably obtained online,
+    // so those will be entered once and then remembered in Firestore.
     try {
       final uri = Uri.https(
         'world.openfoodfacts.org',
-        '/api/v3/product/$barcode',
+        '/api/v3/product/$scannedBarcode',
         <String, String>{
           'product_type': 'all',
           'fields': 'product_name,categories,brands',
@@ -807,24 +836,26 @@ class _AddProductPageState extends State<AddProductPage> {
           final name = (product['product_name'] ?? '').toString().trim();
           final categories =
               (product['categories'] ?? '').toString().trim();
-          final brand = (product['brands'] ?? '').toString().trim();
 
           if (name.isNotEmpty || categories.isNotEmpty) {
             setState(() {
               if (name.isNotEmpty) {
                 _nameController.text = name;
               }
+
               if (categories.isNotEmpty) {
                 final onlineCategory = categories.split(',').first.trim();
                 _categoryController.text =
-                    _isAllowedCategory(onlineCategory) ? onlineCategory : 'වෙනත්';
-              } else if (brand.isNotEmpty) {
+                    _isAllowedCategory(onlineCategory)
+                        ? onlineCategory
+                        : 'වෙනත්';
+              } else {
                 _categoryController.text = 'වෙනත්';
               }
             });
 
             _showMessage(
-              'අන්තර්ජාල බාර්කෝඩ් දත්ත ගබඩාවෙන් භාණ්ඩ නම සහ වර්ගය ස්වයංක්‍රීයව පුරවා ගත්තා. මිලදී ගැනීමේ සහ විකුණුම් මිල අපේ වෙළඳසැලට අදාළ නිසා ඔබ ඇතුළත් කරන්න.',
+              'භාණ්ඩ නම සහ වර්ගය auto-fill කළා. මිලදී/විකුණුම් මිල මේ shop එකට අදාළ නිසා පළමු වරට ඇතුළත් කරන්න. ඊළඟ scan එකේ ඒ මිල දෙක auto-fill වේ.',
             );
             return;
           }
@@ -832,17 +863,16 @@ class _AddProductPageState extends State<AddProductPage> {
       }
 
       _showMessage(
-        'මේ බාර්කෝඩ් එක පොදු භාණ්ඩ දත්ත ගබඩාවේ හමු වුණේ නැහැ. විස්තර අතින් ඇතුළත් කරන්න.',
+        'මේ බාර්කෝඩ් එක හමු වුණේ නැහැ. පළමු වරට විස්තර ඇතුළත් කර සුරකින්න. ඊළඟ වර scan කළාම මිලත් auto-fill වේ.',
       );
     } catch (_) {
       if (!mounted) return;
       _showMessage(
-        'අන්තර්ජාල බාර්කෝඩ් දත්ත ගබඩාවට සම්බන්ධ වීමට බැරි වුණා. විස්තර අතින් ඇතුළත් කරන්න.',
+        'බාර්කෝඩ් දත්ත ගබඩාවට සම්බන්ධ වීමට බැරි වුණා. පළමු වරට විස්තර අතින් ඇතුළත් කරන්න. ඊළඟ scan එකේ අපේ database එකෙන් මිල auto-fill වේ.',
         isError: true,
       );
     }
   }
-
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) return;
 
