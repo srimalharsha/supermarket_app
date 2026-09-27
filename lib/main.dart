@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'firebase_options.dart';
 
@@ -255,6 +256,19 @@ class _AddProductPageState extends State<AddProductPage> {
     super.dispose();
   }
 
+  Future<void> _scanBarcode() async {
+    final scannedCode = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const BarcodeScannerPage()),
+    );
+
+    if (!mounted || scannedCode == null || scannedCode.isEmpty) return;
+
+    setState(() {
+      _barcodeController.text = scannedCode;
+    });
+  }
+
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -318,6 +332,7 @@ class _AddProductPageState extends State<AddProductPage> {
     required IconData icon,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    VoidCallback? onScan,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -328,6 +343,13 @@ class _AddProductPageState extends State<AddProductPage> {
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon),
+          suffixIcon: onScan == null
+              ? null
+              : IconButton(
+                  tooltip: 'Camera එකෙන් Barcode Scan කරන්න',
+                  icon: const Icon(Icons.camera_alt, color: Colors.green),
+                  onPressed: onScan,
+                ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -393,6 +415,7 @@ class _AddProductPageState extends State<AddProductPage> {
               icon: Icons.qr_code,
               keyboardType: TextInputType.number,
               validator: _required,
+              onScan: _scanBarcode,
             ),
             _field(
               controller: _categoryController,
@@ -448,6 +471,74 @@ class _AddProductPageState extends State<AddProductPage> {
             const SizedBox(height: 20),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class BarcodeScannerPage extends StatefulWidget {
+  const BarcodeScannerPage({super.key});
+
+  @override
+  State<BarcodeScannerPage> createState() => _BarcodeScannerPageState();
+}
+
+class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
+  bool _found = false;
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_found) return;
+
+    for (final barcode in capture.barcodes) {
+      final value = barcode.rawValue;
+      if (value != null && value.trim().isNotEmpty) {
+        _found = true;
+        Navigator.of(context).pop(value.trim());
+        return;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Barcode Scan'),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+      ),
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          MobileScanner(
+            onDetect: _onDetect,
+          ),
+          Center(
+            child: Container(
+              width: 280,
+              height: 150,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.greenAccent, width: 3),
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+          const Positioned(
+            left: 20,
+            right: 20,
+            bottom: 40,
+            child: Text(
+              'Barcode එක කොටුව ඇතුළට තබන්න. Scan වූ විගස Barcode field එකට ඇතුළත් වේ.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
