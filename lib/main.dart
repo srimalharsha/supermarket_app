@@ -257,6 +257,170 @@ class StockPage extends StatefulWidget {
 class _StockPageState extends State<StockPage> {
   String _selectedCategory = 'සියලුම භාණ්ඩ';
 
+  Future<void> _editProduct(DocumentSnapshot<Map<String, dynamic>> doc) async {
+    final data = doc.data() ?? {};
+    final nameController = TextEditingController(text: (data['name'] ?? '').toString());
+    final barcodeController = TextEditingController(text: (data['barcode'] ?? '').toString());
+    final buyController = TextEditingController(text: (data['buyPrice'] ?? '').toString());
+    final sellController = TextEditingController(text: (data['sellingPrice'] ?? '').toString());
+    final stockController = TextEditingController(text: (data['stockQuantity'] ?? 0).toString());
+    final limitController = TextEditingController(text: (data['lowStockLimit'] ?? 5).toString());
+    String category = _isAllowedCategory((data['category'] ?? '').toString())
+        ? (data['category'] ?? '').toString()
+        : 'වෙනත්';
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('භාණ්ඩය සංස්කරණය කරන්න'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'භාණ්ඩ නම'),
+                ),
+                TextField(
+                  controller: barcodeController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'බාර්කෝඩ්'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: category,
+                  decoration: const InputDecoration(labelText: 'භාණ්ඩ වර්ගය'),
+                  items: supermarketCategories.skip(1).map(
+                    (item) => DropdownMenuItem(value: item, child: Text(item)),
+                  ).toList(),
+                  onChanged: (value) {
+                    if (value != null) setDialogState(() => category = value);
+                  },
+                ),
+                TextField(
+                  controller: buyController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'මිලදී ගැනීමේ මිල (රු.)'),
+                ),
+                TextField(
+                  controller: sellController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'විකුණුම් මිල (රු.)'),
+                ),
+                TextField(
+                  controller: stockController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'තොග ප්‍රමාණය'),
+                ),
+                TextField(
+                  controller: limitController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'අඩු තොග සීමාව'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('අවලංගු කරන්න'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final buy = double.tryParse(buyController.text.trim());
+                final sell = double.tryParse(sellController.text.trim());
+                final stock = int.tryParse(stockController.text.trim());
+                final limit = int.tryParse(limitController.text.trim());
+                if (nameController.text.trim().isEmpty ||
+                    barcodeController.text.trim().isEmpty ||
+                    buy == null ||
+                    sell == null ||
+                    stock == null ||
+                    limit == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('කරුණාකර සියලු විස්තර නිවැරදිව ඇතුළත් කරන්න.')),
+                  );
+                  return;
+                }
+                try {
+                  await doc.reference.update({
+                    'name': nameController.text.trim(),
+                    'barcode': barcodeController.text.trim(),
+                    'category': category,
+                    'buyPrice': buy,
+                    'sellingPrice': sell,
+                    'stockQuantity': stock,
+                    'lowStockLimit': limit,
+                  });
+                  if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('භාණ්ඩය සංස්කරණය කිරීමේදී දෝෂයක් ඇතිවුණා.')),
+                    );
+                  }
+                }
+              },
+              child: const Text('සුරකින්න'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    nameController.dispose();
+    barcodeController.dispose();
+    buyController.dispose();
+    sellController.dispose();
+    stockController.dispose();
+    limitController.dispose();
+
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('භාණ්ඩ විස්තර යාවත්කාලීන කළා.')),
+      );
+    }
+  }
+
+  Future<void> _deleteProduct(DocumentSnapshot<Map<String, dynamic>> doc, String name) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('භාණ්ඩය මකන්නද?'),
+        content: Text('“$name” භාණ්ඩය තොගයෙන් ස්ථිරවම මකා දමන්නද?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('අවලංගු කරන්න'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('මකන්න'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await doc.reference.delete();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('භාණ්ඩය මකා දැමුවා.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('භාණ්ඩය මකා දැමීමේදී දෝෂයක් ඇතිවුණා.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -391,29 +555,67 @@ class _StockPageState extends State<StockPage> {
                                   'විකුණුම් මිල: රු. ${sellingPrice.toStringAsFixed(2)}',
                                 ].join('\n')),
                               ),
-                              trailing: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '$quantity',
-                                    style: TextStyle(
-                                      fontSize: 21,
-                                      fontWeight: FontWeight.bold,
-                                      color: statusColor,
+                              trailing: SizedBox(
+                                width: 145,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '$quantity',
+                                          style: TextStyle(
+                                            fontSize: 21,
+                                            fontWeight: FontWeight.bold,
+                                            color: statusColor,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Icon(
+                                          isOut
+                                              ? Icons.remove_shopping_cart
+                                              : Icons.inventory_2,
+                                          size: 18,
+                                          color: statusColor,
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                  Text(
-                                    isOut
-                                        ? 'තොග අවසන්'
-                                        : (isLow ? 'අඩු තොග' : 'තොග තිබේ'),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: statusColor,
-                                      fontWeight: FontWeight.w600,
+                                    Text(
+                                      isOut
+                                          ? 'තොග අවසන්'
+                                          : (isLow ? 'අඩු තොග' : 'තොග තිබේ'),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: statusColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'සංස්කරණය කරන්න',
+                                          visualDensity: VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                          icon: const Icon(Icons.edit, size: 21),
+                                          color: Colors.blue,
+                                          onPressed: () => _editProduct(filteredDocs[index]),
+                                        ),
+                                        IconButton(
+                                          tooltip: 'මකන්න',
+                                          visualDensity: VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                          icon: const Icon(Icons.delete, size: 21),
+                                          color: Colors.red,
+                                          onPressed: () => _deleteProduct(filteredDocs[index], name),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           );
