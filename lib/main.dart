@@ -257,6 +257,11 @@ class StockPage extends StatefulWidget {
 class _StockPageState extends State<StockPage> {
   String _selectedCategory = 'සියලුම භාණ්ඩ';
 
+  bool _isAllowedCategory(String value) {
+    return supermarketCategories.skip(1).contains(value);
+  }
+
+
   Future<void> _editProduct(DocumentSnapshot<Map<String, dynamic>> doc) async {
     final data = doc.data() ?? {};
     final nameController = TextEditingController(text: (data['name'] ?? '').toString());
