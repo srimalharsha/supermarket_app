@@ -34,6 +34,21 @@ class HomePage extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: Center(
+              child: Text(
+                'Designed by Srimal Harsha',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -73,9 +88,7 @@ class HomePage extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
-
             Row(
               children: [
                 Expanded(
@@ -97,9 +110,7 @@ class HomePage extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 12),
-
             Row(
               children: [
                 Expanded(
@@ -121,9 +132,7 @@ class HomePage extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 20),
-
             const Text(
               '📊 අද තත්ත්වය',
               style: TextStyle(
@@ -131,9 +140,7 @@ class HomePage extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 12),
-
             Row(
               children: [
                 Expanded(
@@ -153,9 +160,7 @@ class HomePage extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 12),
-
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -199,9 +204,7 @@ class HomePage extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 25),
-
             const Center(
               child: Text(
                 'Supermarket Management System',
