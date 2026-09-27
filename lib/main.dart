@@ -151,7 +151,10 @@ class HomePage extends StatelessWidget {
                     icon: Icons.receipt_long,
                     title: 'අලුත් බිල්පත',
                     subtitle: 'අලුත් බිල්පත',
-                    onTap: () {},
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const NewBillPage()),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -171,24 +174,35 @@ class HomePage extends StatelessWidget {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryCard(
-                    icon: Icons.shopping_cart,
-                    title: 'අද විකුණුම්',
-                    value: '0',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _SummaryCard(
-                    icon: Icons.attach_money,
-                    title: 'මුළු ආදායම',
-                    value: 'Rs. 0',
-                  ),
-                ),
-              ],
+            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('dailySales')
+                  .doc(DateTime.now().toIso8601String().substring(0, 10))
+                  .snapshots(),
+              builder: (context, snapshot) {
+                final data = snapshot.data?.data() ?? {};
+                final bills = (data['billCount'] as num?)?.toInt() ?? 0;
+                final revenue = (data['revenue'] as num?)?.toDouble() ?? 0;
+                return Row(
+                  children: [
+                    Expanded(
+                      child: _SummaryCard(
+                        icon: Icons.shopping_cart,
+                        title: 'අද විකුණුම්',
+                        value: bills.toString(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _SummaryCard(
+                        icon: Icons.attach_money,
+                        title: 'මුළු ආදායම',
+                        value: 'Rs. ' + revenue.toStringAsFixed(2),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             Container(
@@ -1140,6 +1154,388 @@ class _AddProductPageState extends State<AddProductPage> {
       ),
     );
   }
+}
+
+
+class NewBillPage extends StatefulWidget {
+  const NewBillPage({super.key});
+  @override
+  State<NewBillPage> createState() => _NewBillPageState();
+}
+
+class _NewBillPageState extends State<NewBillPage> {
+  final List<_BillItem> _items = [];
+  bool _saving = false;
+
+  double get _total => _items.fold(0, (sum, item) => sum + item.total);
+
+  String get _todayKey => DateTime.now().toIso8601String().substring(0, 10);
+
+  Future<void> _scanAndAdd() async {
+    final code = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const BarcodeScannerPage()),
+    );
+    if (!mounted || code == null || code.trim().isEmpty) return;
+
+    final barcode = code.trim();
+    final snapshot = await FirebaseFirestore.instance
+        .collection('products')
+        .where('barcode', isEqualTo: barcode)
+        .limit(1)
+        .get();
+
+    if (!mounted) return;
+    if (snapshot.docs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(
+          'මෙම බාර්කෝඩ් එකට භාණ්ඩයක් හමු වුණේ නැහැ. මුලින් භාණ්ඩය තොගයට එකතු කරන්න.',
+        )),
+      );
+      return;
+    }
+
+    final doc = snapshot.docs.first;
+    final data = doc.data();
+    final name = (data['name'] ?? 'නම නොමැත').toString();
+    final price = (data['sellingPrice'] as num?)?.toDouble() ?? 0;
+    final stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
+    final imageUrl = (data['imageUrl'] ?? '').toString();
+
+    if (price <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(name + ' සඳහා විකිණුම් මිලක් නැහැ.')),
+      );
+      return;
+    }
+
+    final existingIndex = _items.indexWhere((item) => item.docId == doc.id);
+    final currentQty =
+        existingIndex >= 0 ? _items[existingIndex].quantity : 0;
+
+    if (currentQty + 1 > stock) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(name + ' සඳහා තිබෙන තොගය ' + stock.toString() + ' යි.')),
+      );
+      return;
+    }
+
+    setState(() {
+      if (existingIndex >= 0) {
+        _items[existingIndex].quantity++;
+      } else {
+        _items.add(_BillItem(
+          docId: doc.id,
+          name: name,
+          barcode: barcode,
+          price: price,
+          quantity: 1,
+          stock: stock,
+          imageUrl: imageUrl,
+        ));
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(name + ' බිල්පතට එකතු කළා.')),
+    );
+  }
+
+  void _changeQuantity(int index, int change) {
+    final item = _items[index];
+    final newQty = item.quantity + change;
+    if (newQty <= 0) {
+      setState(() => _items.removeAt(index));
+      return;
+    }
+    if (newQty > item.stock) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(item.name + ' සඳහා තිබෙන තොගය ' +
+            item.stock.toString() + ' යි.')),
+      );
+      return;
+    }
+    setState(() => item.quantity = newQty);
+  }
+
+  Future<void> _saveBill() async {
+    if (_items.isEmpty || _saving) return;
+    setState(() => _saving = true);
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final billRef = firestore.collection('bills').doc();
+      final salesRef = firestore.collection('dailySales').doc(_todayKey);
+
+      await firestore.runTransaction((transaction) async {
+        final latest = <String, DocumentSnapshot<Map<String, dynamic>>>{};
+
+        for (final item in _items) {
+          final ref = firestore.collection('products').doc(item.docId);
+          latest[item.docId] = await transaction.get(ref);
+        }
+
+        for (final item in _items) {
+          final snap = latest[item.docId]!;
+          if (!snap.exists) {
+            throw Exception('භාණ්ඩය හමු වුණේ නැහැ: ' + item.name);
+          }
+          final data = snap.data()!;
+          final currentStock =
+              (data['stockQuantity'] as num?)?.toInt() ?? 0;
+
+          if (currentStock < item.quantity) {
+            throw Exception(item.name + ' සඳහා ප්‍රමාණවත් තොගයක් නැහැ. දැන් තිබෙන්නේ ' +
+                currentStock.toString() + ' යි.');
+          }
+
+          transaction.update(snap.reference, {
+            'stockQuantity': currentStock - item.quantity,
+          });
+        }
+
+        final billItems = _items.map((item) => {
+          'productId': item.docId,
+          'name': item.name,
+          'barcode': item.barcode,
+          'price': item.price,
+          'quantity': item.quantity,
+          'total': item.total,
+        }).toList();
+
+        transaction.set(billRef, {
+          'billNumber': billRef.id,
+          'items': billItems,
+          'total': _total,
+          'createdAt': FieldValue.serverTimestamp(),
+          'dateKey': _todayKey,
+        });
+
+        transaction.set(
+          salesRef,
+          {
+            'dateKey': _todayKey,
+            'billCount': FieldValue.increment(1),
+            'revenue': FieldValue.increment(_total),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      });
+
+      if (!mounted) return;
+      final savedTotal = _total;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('බිල්පත සාර්ථකයි ✅'),
+          content: Text(
+            'මුළු මුදල: Rs. ' + savedTotal.toStringAsFixed(2) +
+            '\nඅද ආදායමටත් එකතු කළා.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('හරි'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('බිල්පත සුරැකීමට නොහැකි වුණා: ' +
+              e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('අලුත් බිල්පත')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _scanAndAdd,
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('බාර්කෝඩ් ස්කෑන් කර භාණ්ඩය එකතු කරන්න'),
+              ),
+            ),
+          ),
+          Expanded(
+            child: _items.isEmpty
+                ? const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.receipt_long, size: 70, color: Colors.grey),
+                        SizedBox(height: 10),
+                        Text(
+                          'බිල්පත හිස්.\nබාර්කෝඩ් එකක් ස්කෑන් කරන්න.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: _items.length,
+                    itemBuilder: (context, index) {
+                      final item = _items[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Row(
+                            children: [
+                              if (item.imageUrl.isNotEmpty)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    item.imageUrl,
+                                    width: 58,
+                                    height: 58,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        const Icon(Icons.shopping_bag, size: 42),
+                                  ),
+                                )
+                              else
+                                const SizedBox(
+                                  width: 58,
+                                  height: 58,
+                                  child: Icon(Icons.shopping_bag, size: 42),
+                                ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(item.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        )),
+                                    Text('Rs. ' + item.price.toStringAsFixed(2)),
+                                    Text('එකතුව: Rs. ' +
+                                        item.total.toStringAsFixed(2),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        )),
+                                  ],
+                                ),
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    onPressed: () => _changeQuantity(index, -1),
+                                    icon: const Icon(Icons.remove_circle_outline),
+                                  ),
+                                  Text(item.quantity.toString(),
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      )),
+                                  IconButton(
+                                    onPressed: () => _changeQuantity(index, 1),
+                                    icon: const Icon(Icons.add_circle_outline),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('මුළු බිල්පත් මුදල',
+                          style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+                      Text('Rs. ' + _total.toStringAsFixed(2),
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton.icon(
+                      onPressed: _items.isEmpty || _saving ? null : _saveBill,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 20, height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.check_circle),
+                      label: Text(_saving
+                          ? 'බිල්පත සුරැකෙමින්...'
+                          : 'බිල්පත සම්පූර්ණ කරන්න'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BillItem {
+  _BillItem({
+    required this.docId,
+    required this.name,
+    required this.barcode,
+    required this.price,
+    required this.quantity,
+    required this.stock,
+    required this.imageUrl,
+  });
+
+  final String docId;
+  final String name;
+  final String barcode;
+  final double price;
+  int quantity;
+  final int stock;
+  final String imageUrl;
+
+  double get total => price * quantity;
 }
 
 class BarcodeScannerPage extends StatefulWidget {
