@@ -1,6 +1,14 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
-void main() {
+import 'firebase_options.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const SupermarketApp());
 }
 
@@ -24,6 +32,13 @@ class SupermarketApp extends StatelessWidget {
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
+
+  void _openAddProduct(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddProductPage()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,10 +74,7 @@ class HomePage extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF2E7D32),
-                    Color(0xFF66BB6A),
-                  ],
+                  colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
                 ),
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -80,10 +92,7 @@ class HomePage extends StatelessWidget {
                   SizedBox(height: 8),
                   Text(
                     'Supermarket Management System',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ],
               ),
@@ -105,7 +114,7 @@ class HomePage extends StatelessWidget {
                     icon: Icons.add_box,
                     title: 'අලුත් භාණ්ඩ',
                     subtitle: 'Add Product',
-                    onTap: () {},
+                    onTap: () => _openAddProduct(context),
                   ),
                 ),
               ],
@@ -135,10 +144,7 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 20),
             const Text(
               '📊 අද තත්ත්වය',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Row(
@@ -208,12 +214,238 @@ class HomePage extends StatelessWidget {
             const Center(
               child: Text(
                 'Supermarket Management System',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: Colors.grey, fontSize: 13),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AddProductPage extends StatefulWidget {
+  const AddProductPage({super.key});
+
+  @override
+  State<AddProductPage> createState() => _AddProductPageState();
+}
+
+class _AddProductPageState extends State<AddProductPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _barcodeController = TextEditingController();
+  final _categoryController = TextEditingController();
+  final _buyPriceController = TextEditingController();
+  final _sellingPriceController = TextEditingController();
+  final _stockController = TextEditingController();
+  final _lowStockController = TextEditingController(text: '5');
+
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _barcodeController.dispose();
+    _categoryController.dispose();
+    _buyPriceController.dispose();
+    _sellingPriceController.dispose();
+    _stockController.dispose();
+    _lowStockController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveProduct() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final buyPrice = double.tryParse(_buyPriceController.text.trim());
+    final sellingPrice = double.tryParse(_sellingPriceController.text.trim());
+    final stock = int.tryParse(_stockController.text.trim());
+    final lowStock = int.tryParse(_lowStockController.text.trim());
+
+    if (buyPrice == null ||
+        sellingPrice == null ||
+        stock == null ||
+        lowStock == null) {
+      _showMessage('කරුණාකර අංක නිවැරදිව ඇතුළත් කරන්න.', isError: true);
+      return;
+    }
+
+    setState(() => _saving = true);
+
+    try {
+      await FirebaseFirestore.instance.collection('products').add({
+        'name': _nameController.text.trim(),
+        'barcode': _barcodeController.text.trim(),
+        'category': _categoryController.text.trim(),
+        'buyPrice': buyPrice,
+        'sellingPrice': sellingPrice,
+        'stockQuantity': stock,
+        'lowStockLimit': lowStock,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+      _showMessage('භාණ්ඩය සාර්ථකව Save කළා.');
+      _formKey.currentState!.reset();
+      _nameController.clear();
+      _barcodeController.clear();
+      _categoryController.clear();
+      _buyPriceController.clear();
+      _sellingPriceController.clear();
+      _stockController.clear();
+      _lowStockController.text = '5';
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Save කිරීමේදී දෝෂයක් ඇතිවුණා.', isError: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+      ),
+    );
+  }
+
+  Widget _field({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        validator: validator,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          filled: true,
+          fillColor: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  String? _required(String? value) {
+    if (value == null || value.trim().isEmpty) return 'මෙය අවශ්‍යයි';
+    return null;
+  }
+
+  String? _number(String? value) {
+    if (value == null || value.trim().isEmpty) return 'මෙය අවශ්‍යයි';
+    if (double.tryParse(value.trim()) == null) return 'අංකයක් ඇතුළත් කරන්න';
+    return null;
+  }
+
+  String? _integer(String? value) {
+    if (value == null || value.trim().isEmpty) return 'මෙය අවශ්‍යයි';
+    if (int.tryParse(value.trim()) == null) {
+      return 'සම්පූර්ණ අංකයක් ඇතුළත් කරන්න';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'අලුත් භාණ්ඩ',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const Text(
+              'භාණ්ඩ විස්තර',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'භාණ්ඩය Firebase Stock database එකට Save කරන්න.',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 18),
+            _field(
+              controller: _nameController,
+              label: 'භාණ්ඩ නම',
+              icon: Icons.shopping_bag_outlined,
+              validator: _required,
+            ),
+            _field(
+              controller: _barcodeController,
+              label: 'Barcode',
+              icon: Icons.qr_code,
+              keyboardType: TextInputType.number,
+              validator: _required,
+            ),
+            _field(
+              controller: _categoryController,
+              label: 'Category',
+              icon: Icons.category_outlined,
+              validator: _required,
+            ),
+            _field(
+              controller: _buyPriceController,
+              label: 'Buy Price (Rs.)',
+              icon: Icons.shopping_cart_checkout,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              validator: _number,
+            ),
+            _field(
+              controller: _sellingPriceController,
+              label: 'Selling Price (Rs.)',
+              icon: Icons.sell_outlined,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              validator: _number,
+            ),
+            _field(
+              controller: _stockController,
+              label: 'Stock Quantity',
+              icon: Icons.inventory_2_outlined,
+              keyboardType: TextInputType.number,
+              validator: _integer,
+            ),
+            _field(
+              controller: _lowStockController,
+              label: 'Low Stock Limit',
+              icon: Icons.warning_amber_outlined,
+              keyboardType: TextInputType.number,
+              validator: _integer,
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _saveProduct,
+                icon: _saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(_saving ? 'Saving...' : 'භාණ්ඩය Save කරන්න'),
+              ),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -254,11 +486,7 @@ class _MenuCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              size: 42,
-              color: Colors.green.shade700,
-            ),
+            Icon(icon, size: 42, color: Colors.green.shade700),
             const SizedBox(height: 10),
             Text(
               title,
@@ -271,10 +499,7 @@ class _MenuCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 12,
-              ),
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ],
         ),
@@ -311,27 +536,17 @@ class _SummaryCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(
-            icon,
-            size: 30,
-            color: Colors.green.shade700,
-          ),
+          Icon(icon, size: 30, color: Colors.green.shade700),
           const SizedBox(height: 8),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.grey,
-            ),
+            style: const TextStyle(fontSize: 13, color: Colors.grey),
           ),
           const SizedBox(height: 5),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ],
       ),
