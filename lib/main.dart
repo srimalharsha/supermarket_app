@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'firebase_options.dart';
@@ -272,6 +274,7 @@ class _AddProductPageState extends State<AddProductPage> {
       _barcodeController.text = barcode;
     });
 
+    // 1. First check our own supermarket database.
     try {
       final result = await FirebaseFirestore.instance
           .collection('products')
@@ -287,22 +290,75 @@ class _AddProductPageState extends State<AddProductPage> {
         setState(() {
           _nameController.text = (data['name'] ?? '').toString();
           _categoryController.text = (data['category'] ?? '').toString();
-          _buyPriceController.text =
-              (data['buyPrice'] ?? '').toString();
+          _buyPriceController.text = (data['buyPrice'] ?? '').toString();
           _sellingPriceController.text =
               (data['sellingPrice'] ?? '').toString();
         });
 
-        _showMessage('Barcode එකට අදාළ භාණ්ඩ විස්තර Auto Fill කළා.');
-      } else {
-        _showMessage(
-          'මේ Barcode එකට භාණ්ඩයක් කලින් Save කරලා නැහැ. අලුත් විස්තර ඇතුළත් කරන්න.',
-        );
+        _showMessage('අපේ Stock database එකෙන් විස්තර Auto Fill කළා.');
+        return;
       }
-    } catch (e) {
+    } catch (_) {
+      // If Firestore lookup fails, continue to the public barcode database.
+    }
+
+    // 2. If it is not in our database, look up the barcode in Open Food Facts.
+    try {
+      final uri = Uri.https(
+        'world.openfoodfacts.org',
+        '/api/v3/product/$barcode',
+        <String, String>{
+          'product_type': 'all',
+          'fields': 'product_name,categories,brands',
+        },
+      );
+
+      final response = await http.get(
+        uri,
+        headers: const {
+          'User-Agent': 'SupermarketApp/1.0 (barcode product lookup)',
+        },
+      ).timeout(const Duration(seconds: 8));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final product = decoded['product'];
+
+        if (product is Map<String, dynamic>) {
+          final name = (product['product_name'] ?? '').toString().trim();
+          final categories =
+              (product['categories'] ?? '').toString().trim();
+          final brand = (product['brands'] ?? '').toString().trim();
+
+          if (name.isNotEmpty || categories.isNotEmpty) {
+            setState(() {
+              if (name.isNotEmpty) {
+                _nameController.text = name;
+              }
+              if (categories.isNotEmpty) {
+                _categoryController.text = categories.split(',').first.trim();
+              } else if (brand.isNotEmpty) {
+                _categoryController.text = brand;
+              }
+            });
+
+            _showMessage(
+              'Online barcode database එකෙන් Product Name සහ Category Auto Fill කළා. Buy/Sell Price අපේ shop price නිසා manually දාන්න.',
+            );
+            return;
+          }
+        }
+      }
+
+      _showMessage(
+        'මේ Barcode එක public product database එකේ හමු වුණේ නැහැ. විස්තර manually ඇතුළත් කරන්න.',
+      );
+    } catch (_) {
       if (!mounted) return;
       _showMessage(
-        'Barcode එකෙන් භාණ්ඩ විස්තර සොයන්න බැරි වුණා.',
+        'Online barcode database එකට සම්බන්ධ වීමට බැරි වුණා. විස්තර manually ඇතුළත් කරන්න.',
         isError: true,
       );
     }
