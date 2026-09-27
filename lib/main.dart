@@ -211,6 +211,19 @@ class HomePage extends StatelessWidget {
                 );
               },
             ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: FilledButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BillHistoryPage()),
+                ),
+                icon: const Icon(Icons.calendar_month),
+                label: const Text('📅 බිල්පත් ඉතිහාසය / දින අනුව බලන්න'),
+              ),
+            ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(18),
@@ -1163,6 +1176,246 @@ class _AddProductPageState extends State<AddProductPage> {
   }
 }
 
+
+
+class BillHistoryPage extends StatefulWidget {
+  const BillHistoryPage({super.key});
+  @override
+  State<BillHistoryPage> createState() => _BillHistoryPageState();
+}
+
+class _BillHistoryPageState extends State<BillHistoryPage> {
+  DateTime _selectedDate = DateTime.now();
+
+  String _dateKey(DateTime date) => date.toIso8601String().substring(0, 10);
+
+  String _displayDate(DateTime date) =>
+      date.day.toString().padLeft(2, '0') + '/' +
+      date.month.toString().padLeft(2, '0') + '/' +
+      date.year.toString();
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      helpText: 'බිල්පත් දිනය තෝරන්න',
+    );
+    if (picked != null && mounted) setState(() => _selectedDate = picked);
+  }
+
+  Future<void> _deleteBill(DocumentSnapshot<Map<String, dynamic>> doc) async {
+    final data = doc.data() ?? {};
+    final total = (data['total'] as num?)?.toDouble() ?? 0;
+    final billNumber = (data['billNumber'] ?? doc.id).toString();
+    final dateKey = (data['dateKey'] ?? _dateKey(_selectedDate)).toString();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('බිල්පත මකන්නද?'),
+        content: Text(
+          'බිල්පත් අංකය: ${billNumber}\n'
+          'මුදල: Rs. ${total.toStringAsFixed(2)}\n\n'
+          'මෙය මැකීමෙන් එම බිල්පතේ භාණ්ඩ stock එකට නැවත එකතු කර, '
+          'එම දවසේ ආදායමෙන් මුදල අඩු කරනු ඇත.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('අවලංගු කරන්න'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('මකන්න'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      await firestore.runTransaction((transaction) async {
+        final items = (data['items'] as List?) ?? const [];
+        final productSnapshots =
+            <String, DocumentSnapshot<Map<String, dynamic>>>{};
+
+        for (final raw in items) {
+          final item = Map<String, dynamic>.from(raw as Map);
+          final productId = (item['productId'] ?? '').toString();
+          if (productId.isEmpty) continue;
+          final ref = firestore.collection('products').doc(productId);
+          productSnapshots[productId] = await transaction.get(ref);
+        }
+
+        for (final raw in items) {
+          final item = Map<String, dynamic>.from(raw as Map);
+          final productId = (item['productId'] ?? '').toString();
+          final quantity = (item['quantity'] as num?)?.toInt() ?? 0;
+          if (productId.isEmpty || quantity <= 0) continue;
+          final snap = productSnapshots[productId];
+          if (snap == null || !snap.exists) continue;
+          final currentStock =
+              (snap.data()?['stockQuantity'] as num?)?.toInt() ?? 0;
+          transaction.update(snap.reference, {
+            'stockQuantity': currentStock + quantity,
+          });
+        }
+
+        final salesRef = firestore.collection('dailySales').doc(dateKey);
+        transaction.set(
+          salesRef,
+          {
+            'dateKey': dateKey,
+            'billCount': FieldValue.increment(-1),
+            'revenue': FieldValue.increment(-total),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+        transaction.delete(doc.reference);
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('බිල්පත මකා දැමුවා. Stock සහ ආදායමත් යාවත්කාලීන කළා.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'බිල්පත මකා දැමීමට නොහැකි වුණා: ' +
+                e.toString().replaceFirst('Exception: ', ''),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final key = _dateKey(_selectedDate);
+    final todayKey = _dateKey(DateTime.now());
+    final canDelete = key == todayKey;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('බිල්පත් ඉතිහාසය')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Card(
+              child: ListTile(
+                leading: const Icon(Icons.calendar_month, size: 34),
+                title: const Text('දිනය තෝරන්න',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(_displayDate(_selectedDate)),
+                trailing: const Icon(Icons.arrow_drop_down),
+                onTap: _pickDate,
+              ),
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('bills')
+                  .where('dateKey', isEqualTo: key)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Text('බිල්පත් ලබාගැනීමේදී දෝෂයක් ඇතිවුණා.'),
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final docs = [...snapshot.data!.docs];
+                docs.sort((a, b) {
+                  final at = a.data()['createdAt'] as Timestamp?;
+                  final bt = b.data()['createdAt'] as Timestamp?;
+                  return (bt?.millisecondsSinceEpoch ?? 0)
+                      .compareTo(at?.millisecondsSinceEpoch ?? 0);
+                });
+
+                if (docs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      _displayDate(_selectedDate) + ' සඳහා බිල්පත් නැහැ.',
+                      style: const TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final doc = docs[index];
+                    final data = doc.data();
+                    final total = (data['total'] as num?)?.toDouble() ?? 0;
+                    final items = (data['items'] as List?) ?? const [];
+                    final billNumber =
+                        (data['billNumber'] ?? doc.id).toString();
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      child: ExpansionTile(
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.receipt_long),
+                        ),
+                        title: Text(
+                          'බිල්පත ${billNumber.length > 8 ? billNumber.substring(0, 8) : billNumber}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          '${items.length} භාණ්ඩ  •  Rs. ${total.toStringAsFixed(2)}',
+                        ),
+                        trailing: canDelete
+                            ? IconButton(
+                                tooltip: 'මකන්න',
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () => _deleteBill(doc),
+                              )
+                            : const Icon(Icons.expand_more),
+                        children: [
+                          for (final raw in items)
+                            ListTile(
+                              dense: true,
+                              title: Text((raw['name'] ?? '').toString()),
+                              subtitle: Text(
+                                '${raw['quantity'] ?? 0} x Rs. ${
+                                  ((raw['price'] as num?)?.toDouble() ?? 0)
+                                      .toStringAsFixed(2)
+                                }',
+                              ),
+                              trailing: Text(
+                                'Rs. ${((raw['total'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)}',
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class NewBillPage extends StatefulWidget {
   const NewBillPage({super.key});
