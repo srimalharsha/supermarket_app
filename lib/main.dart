@@ -662,6 +662,7 @@ class _AddProductPageState extends State<AddProductPage> {
   final _sellingPriceController = TextEditingController();
   final _stockController = TextEditingController();
   final _lowStockController = TextEditingController(text: '5');
+  final _expiryDateController = TextEditingController();
 
   bool _saving = false;
 
@@ -678,6 +679,7 @@ class _AddProductPageState extends State<AddProductPage> {
     _sellingPriceController.dispose();
     _stockController.dispose();
     _lowStockController.dispose();
+    _expiryDateController.dispose();
     super.dispose();
   }
 
@@ -692,9 +694,46 @@ class _AddProductPageState extends State<AddProductPage> {
     await _fillProductFromBarcode(scannedCode);
   }
 
+  Map<String, String> _parseGs1Barcode(String barcode) {
+    final result = <String, String>{};
+    // GS1 AI 17 = expiry date (YYMMDD).
+    final expiryMatch = RegExp(r'(?:^|\\x1D)17(\\d{6})').firstMatch(barcode);
+    if (expiryMatch != null) {
+      final v = expiryMatch.group(1)!;
+      final year = 2000 + int.parse(v.substring(0, 2));
+      final month = int.parse(v.substring(2, 4));
+      final day = int.parse(v.substring(4, 6));
+      try {
+        final date = DateTime(year, month, day);
+        result['expiryDate'] =
+            '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+      } catch (_) {}
+    }
+    // GS1 price AIs 392x/393x may contain a variable price.
+    final priceMatch = RegExp(r'(?:^|\\x1D)39[23]([0-9])([0-9]+)').firstMatch(barcode);
+    if (priceMatch != null) {
+      final raw = priceMatch.group(2)!;
+      final decimals = int.tryParse(priceMatch.group(1)!) ?? 0;
+      if (raw.isNotEmpty) {
+        final number = int.tryParse(raw);
+        if (number != null) {
+          result['sellingPrice'] = (number / (decimals == 0 ? 1 : 100)).toStringAsFixed(decimals);
+        }
+      }
+    }
+    return result;
+  }
+
   Future<void> _fillProductFromBarcode(String barcode) async {
+    final gs1 = _parseGs1Barcode(barcode);
     setState(() {
       _barcodeController.text = barcode;
+      if (gs1['expiryDate'] != null) {
+        _expiryDateController.text = gs1['expiryDate']!;
+      }
+      if (gs1['sellingPrice'] != null) {
+        _sellingPriceController.text = gs1['sellingPrice']!;
+      }
     });
 
     // 1. First check our own supermarket database.
@@ -716,8 +755,14 @@ class _AddProductPageState extends State<AddProductPage> {
           _categoryController.text =
               _isAllowedCategory(savedCategory) ? savedCategory : 'වෙනත්';
           _buyPriceController.text = (data['buyPrice'] ?? '').toString();
-          _sellingPriceController.text =
-              (data['sellingPrice'] ?? '').toString();
+          if (gs1['sellingPrice'] == null) {
+            _sellingPriceController.text =
+                (data['sellingPrice'] ?? '').toString();
+          }
+          if (gs1['expiryDate'] == null) {
+            _expiryDateController.text =
+                (data['expiryDate'] ?? '').toString();
+          }
         });
 
         _showMessage('අපේ තොග දත්ත වලින් විස්තර ස්වයංක්‍රීයව පුරවා ගත්තා.');
@@ -818,6 +863,7 @@ class _AddProductPageState extends State<AddProductPage> {
         'sellingPrice': sellingPrice,
         'stockQuantity': stock,
         'lowStockLimit': lowStock,
+        'expiryDate': _expiryDateController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -831,6 +877,7 @@ class _AddProductPageState extends State<AddProductPage> {
       _sellingPriceController.clear();
       _stockController.clear();
       _lowStockController.text = '5';
+      _expiryDateController.clear();
     } catch (e) {
       if (!mounted) return;
       _showMessage('භාණ්ඩය සුරැකීමේදී දෝෂයක් ඇතිවුණා.', isError: true);
@@ -994,6 +1041,12 @@ class _AddProductPageState extends State<AddProductPage> {
               icon: Icons.inventory_2_outlined,
               keyboardType: TextInputType.number,
               validator: _integer,
+            ),
+            _field(
+              controller: _expiryDateController,
+              label: 'කල් ඉකුත් වන දිනය',
+              icon: Icons.event_outlined,
+              keyboardType: TextInputType.datetime,
             ),
             _field(
               controller: _lowStockController,
