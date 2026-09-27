@@ -601,21 +601,30 @@ class _StockPageState extends State<StockPage> {
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
-                                        IconButton(
-                                          tooltip: 'සංස්කරණය කරන්න',
-                                          visualDensity: VisualDensity.compact,
-                                          padding: EdgeInsets.zero,
-                                          icon: const Icon(Icons.edit, size: 21),
-                                          color: Colors.blue,
-                                          onPressed: () => _editProduct(filteredDocs[index]),
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.blue,
+                                            visualDensity: VisualDensity.compact,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                                          ),
+                                          icon: const Icon(Icons.edit, size: 18),
+                                          label: const Text('Edit'),
+                                          onPressed: () {
+                                            _editProduct(filteredDocs[index]);
+                                          },
                                         ),
-                                        IconButton(
-                                          tooltip: 'මකන්න',
-                                          visualDensity: VisualDensity.compact,
-                                          padding: EdgeInsets.zero,
-                                          icon: const Icon(Icons.delete, size: 21),
-                                          color: Colors.red,
-                                          onPressed: () => _deleteProduct(filteredDocs[index], name),
+                                        const SizedBox(width: 6),
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.red,
+                                            visualDensity: VisualDensity.compact,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                                          ),
+                                          icon: const Icon(Icons.delete, size: 18),
+                                          label: const Text('Delete'),
+                                          onPressed: () {
+                                            _deleteProduct(filteredDocs[index], name);
+                                          },
                                         ),
                                       ],
                                     ),
