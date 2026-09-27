@@ -530,129 +530,115 @@ class _StockPageState extends State<StockPage> {
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 10),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    statusColor.withValues(alpha: 0.12),
-                                child: Icon(
-                                  isOut
-                                      ? Icons.remove_shopping_cart
-                                      : Icons.inventory_2,
-                                  color: statusColor,
-                                ),
-                              ),
-                              title: Text(
-                                name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 5),
-                                child: Text([
-                                  if (category.isNotEmpty)
-                                    'වර්ගය: $category',
-                                  if (barcode.isNotEmpty)
-                                    'බාර්කෝඩ්: $barcode',
-                                  'විකුණුම් මිල: රු. ${sellingPrice.toStringAsFixed(2)}',
-                                ].join('\n')),
-                              ),
-                              trailing: SizedBox(
-                                width: 130,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          '$quantity',
-                                          style: TextStyle(
-                                            fontSize: 21,
-                                            fontWeight: FontWeight.bold,
-                                            color: statusColor,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Icon(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor:
+                                            statusColor.withValues(alpha: 0.12),
+                                        child: Icon(
                                           isOut
                                               ? Icons.remove_shopping_cart
                                               : Icons.inventory_2,
-                                          size: 18,
                                           color: statusColor,
                                         ),
-                                      ],
-                                    ),
-                                    Text(
-                                      isOut
-                                          ? 'තොග අවසන්'
-                                          : (isLow ? 'අඩු තොග' : 'තොග තිබේ'),
-                                      textAlign: TextAlign.end,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: statusColor,
-                                        fontWeight: FontWeight.w600,
                                       ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SizedBox(
-                                          width: 52,
-                                          height: 48,
-                                          child: Material(
-                                            color: Colors.blue.shade50,
-                                            borderRadius: BorderRadius.circular(10),
-                                            child: InkWell(
-                                              borderRadius: BorderRadius.circular(10),
-                                              onTap: () async {
-                                                await _editProduct(filteredDocs[index]);
-                                              },
-                                              child: const Center(
-                                                child: Icon(
-                                                  Icons.edit,
-                                                  size: 23,
-                                                  color: Colors.blue,
-                                                ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
                                               ),
                                             ),
-                                          ),
+                                            const SizedBox(height: 5),
+                                            Text([
+                                              if (category.isNotEmpty)
+                                                'වර්ගය: $category',
+                                              if (barcode.isNotEmpty)
+                                                'බාර්කෝඩ්: $barcode',
+                                              'විකුණුම් මිල: රු. ${sellingPrice.toStringAsFixed(2)}',
+                                            ].join('\\n')),
+                                          ],
                                         ),
-                                        const SizedBox(width: 6),
-                                        SizedBox(
-                                          width: 52,
-                                          height: 48,
-                                          child: Material(
-                                            color: Colors.red.shade50,
-                                            borderRadius: BorderRadius.circular(10),
-                                            child: InkWell(
-                                              borderRadius: BorderRadius.circular(10),
-                                              onTap: () async {
-                                                await _deleteProduct(
-                                                  filteredDocs[index],
-                                                  name,
-                                                );
-                                              },
-                                              child: const Center(
-                                                child: Icon(
-                                                  Icons.delete,
-                                                  size: 23,
-                                                  color: Colors.red,
-                                                ),
-                                              ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            '$quantity',
+                                            style: TextStyle(
+                                              fontSize: 21,
+                                              fontWeight: FontWeight.bold,
+                                              color: statusColor,
                                             ),
                                           ),
+                                          Text(
+                                            isOut
+                                                ? 'තොග අවසන්'
+                                                : (isLow
+                                                    ? 'අඩු තොග'
+                                                    : 'තොග තිබේ'),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: statusColor,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: FilledButton.icon(
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: Colors.blue,
+                                            minimumSize:
+                                                const Size.fromHeight(48),
+                                          ),
+                                          onPressed: () {
+                                            _editProduct(filteredDocs[index]);
+                                          },
+                                          icon: const Icon(Icons.edit),
+                                          label: const Text('සංස්කරණය'),
                                         ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: FilledButton.icon(
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            minimumSize:
+                                                const Size.fromHeight(48),
+                                          ),
+                                          onPressed: () {
+                                            _deleteProduct(
+                                              filteredDocs[index],
+                                              name,
+                                            );
+                                          },
+                                          icon: const Icon(Icons.delete),
+                                          label: const Text('මකන්න'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           );
