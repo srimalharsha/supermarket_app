@@ -561,10 +561,10 @@ class _StockPageState extends State<StockPage> {
                                 ].join('\n')),
                               ),
                               trailing: SizedBox(
-                                width: 145,
+                                width: 105,
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.end,
@@ -591,42 +591,40 @@ class _StockPageState extends State<StockPage> {
                                       isOut
                                           ? 'තොග අවසන්'
                                           : (isLow ? 'අඩු තොග' : 'තොග තිබේ'),
+                                      textAlign: TextAlign.end,
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: statusColor,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: Colors.blue,
-                                            visualDensity: VisualDensity.compact,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                                          ),
-                                          icon: const Icon(Icons.edit, size: 18),
-                                          label: const Text('Edit'),
-                                          onPressed: () {
-                                            _editProduct(filteredDocs[index]);
-                                          },
+                                    const SizedBox(height: 6),
+                                    SizedBox(
+                                      height: 34,
+                                      child: OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.blue,
+                                          padding: EdgeInsets.zero,
+                                          minimumSize: Size.zero,
                                         ),
-                                        const SizedBox(width: 6),
-                                        OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: Colors.red,
-                                            visualDensity: VisualDensity.compact,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                                          ),
-                                          icon: const Icon(Icons.delete, size: 18),
-                                          label: const Text('Delete'),
-                                          onPressed: () {
-                                            _deleteProduct(filteredDocs[index], name);
-                                          },
+                                        icon: const Icon(Icons.edit, size: 16),
+                                        label: const Text('Edit'),
+                                        onPressed: () => _editProduct(filteredDocs[index]),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    SizedBox(
+                                      height: 34,
+                                      child: OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.red,
+                                          padding: EdgeInsets.zero,
+                                          minimumSize: Size.zero,
                                         ),
-                                      ],
+                                        icon: const Icon(Icons.delete, size: 16),
+                                        label: const Text('Delete'),
+                                        onPressed: () => _deleteProduct(filteredDocs[index], name),
+                                      ),
                                     ),
                                   ],
                                 ),
