@@ -661,6 +661,8 @@ class AddProductPage extends StatefulWidget {
 }
 
 class _AddProductPageState extends State<AddProductPage> {
+  String _imageUrl = '';
+
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _barcodeController = TextEditingController();
@@ -765,6 +767,7 @@ class _AddProductPageState extends State<AddProductPage> {
         final data = result.docs.first.data();
 
         setState(() {
+          _imageUrl = (data['imageUrl'] ?? '').toString();
           _nameController.text = (data['name'] ?? '').toString();
 
           final savedCategory = (data['category'] ?? '').toString();
@@ -815,7 +818,7 @@ class _AddProductPageState extends State<AddProductPage> {
         '/api/v3/product/$scannedBarcode',
         <String, String>{
           'product_type': 'all',
-          'fields': 'product_name,categories,brands',
+          'fields': 'product_name,categories,brands,image_url,image_front_url,image_small_url',
         },
       );
 
@@ -836,9 +839,18 @@ class _AddProductPageState extends State<AddProductPage> {
           final name = (product['product_name'] ?? '').toString().trim();
           final categories =
               (product['categories'] ?? '').toString().trim();
+          final imageUrl = (product['image_front_url'] ??
+                  product['image_url'] ??
+                  product['image_small_url'] ??
+                  '')
+              .toString()
+              .trim();
 
-          if (name.isNotEmpty || categories.isNotEmpty) {
+          if (name.isNotEmpty || categories.isNotEmpty || imageUrl.isNotEmpty) {
             setState(() {
+              if (imageUrl.isNotEmpty) {
+                _imageUrl = imageUrl;
+              }
               if (name.isNotEmpty) {
                 _nameController.text = name;
               }
@@ -894,6 +906,7 @@ class _AddProductPageState extends State<AddProductPage> {
     try {
       await FirebaseFirestore.instance.collection('products').add({
         'name': _nameController.text.trim(),
+        'imageUrl': _imageUrl.trim(),
         'barcode': _barcodeController.text.trim(),
         'category': _categoryController.text.trim(),
         'buyPrice': buyPrice,
@@ -909,6 +922,7 @@ class _AddProductPageState extends State<AddProductPage> {
       _formKey.currentState!.reset();
       _nameController.clear();
       _barcodeController.clear();
+      _imageUrl = '';
       _categoryController.clear();
       _buyPriceController.clear();
       _sellingPriceController.clear();
@@ -1093,6 +1107,19 @@ class _AddProductPageState extends State<AddProductPage> {
               validator: _integer,
             ),
             const SizedBox(height: 6),
+            if (_imageUrl.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.network(
+                  _imageUrl,
+                  height: 150,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             SizedBox(
               height: 52,
               child: FilledButton.icon(
