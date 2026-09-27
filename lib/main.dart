@@ -603,31 +603,51 @@ class _StockPageState extends State<StockPage> {
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        IconButton(
-                                          tooltip: 'Edit',
-                                          icon: const Icon(Icons.edit, size: 22),
-                                          color: Colors.blue,
-                                          padding: const EdgeInsets.all(8),
-                                          constraints: const BoxConstraints(
-                                            minWidth: 44,
-                                            minHeight: 44,
+                                        SizedBox(
+                                          width: 52,
+                                          height: 48,
+                                          child: Material(
+                                            color: Colors.blue.shade50,
+                                            borderRadius: BorderRadius.circular(10),
+                                            child: InkWell(
+                                              borderRadius: BorderRadius.circular(10),
+                                              onTap: () async {
+                                                await _editProduct(filteredDocs[index]);
+                                              },
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.edit,
+                                                  size: 23,
+                                                  color: Colors.blue,
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                          onPressed: () {
-                                            _editProduct(filteredDocs[index]);
-                                          },
                                         ),
-                                        IconButton(
-                                          tooltip: 'Delete',
-                                          icon: const Icon(Icons.delete, size: 22),
-                                          color: Colors.red,
-                                          padding: const EdgeInsets.all(8),
-                                          constraints: const BoxConstraints(
-                                            minWidth: 44,
-                                            minHeight: 44,
+                                        const SizedBox(width: 6),
+                                        SizedBox(
+                                          width: 52,
+                                          height: 48,
+                                          child: Material(
+                                            color: Colors.red.shade50,
+                                            borderRadius: BorderRadius.circular(10),
+                                            child: InkWell(
+                                              borderRadius: BorderRadius.circular(10),
+                                              onTap: () async {
+                                                await _deleteProduct(
+                                                  filteredDocs[index],
+                                                  name,
+                                                );
+                                              },
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.delete,
+                                                  size: 23,
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                          onPressed: () {
-                                            _deleteProduct(filteredDocs[index], name);
-                                          },
                                         ),
                                       ],
                                     ),
