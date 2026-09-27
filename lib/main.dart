@@ -547,8 +547,47 @@ class _StockPageState extends State<StockPage> {
                   return category == _selectedCategory;
                 }).toList();
 
+          final lowStockDocs = docs.where((doc) {
+            final quantity = (doc.data()['stockQuantity'] as num?)?.toInt() ?? 0;
+            return quantity <= 5;
+          }).toList();
+          final expiringDocs = docs.where((doc) {
+            final days = _daysUntilExpiry((doc.data()['expiryDate'] ?? '').toString());
+            return days != null && days <= 5;
+          }).toList();
+          final hasAlerts = lowStockDocs.isNotEmpty || expiringDocs.isNotEmpty;
+
           return Column(
             children: [
+              if (hasAlerts)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                  child: Material(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => _showStockAlerts(docs),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.notifications_active, color: Colors.red, size: 30),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '🔴 දැනුම්දීම්: ' + lowStockDocs.length.toString() + ' අඩු තොග' +
+                                (expiringDocs.isNotEmpty ? ' • ' + expiringDocs.length.toString() + ' කල් ඉකුත්වීම්' : ''),
+                                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right, color: Colors.red),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               SizedBox(
                 height: 58,
                 child: ListView.separated(
@@ -601,9 +640,12 @@ class _StockPageState extends State<StockPage> {
                               (data['lowStockLimit'] as num?)?.toInt() ?? 5;
                           final sellingPrice =
                               (data['sellingPrice'] as num?)?.toDouble() ?? 0;
+                          final expiryDate = (data['expiryDate'] ?? '').toString();
+                          final expiryDays = _daysUntilExpiry(expiryDate);
+                          final isExpiryAlert = expiryDays != null && expiryDays <= 5;
                           final isOut = quantity <= 0;
                           final isLow = quantity > 0 && quantity <= limit;
-                          final statusColor = isOut
+                          final statusColor = isOut || isExpiryAlert
                               ? Colors.red
                               : (isLow ? Colors.orange : Colors.green);
 
@@ -647,6 +689,11 @@ class _StockPageState extends State<StockPage> {
                                               if (barcode.isNotEmpty)
                                                 'බාර්කෝඩ්: $barcode',
                                               'විකුණුම් මිල: රු. ${sellingPrice.toStringAsFixed(2)}',
+                                              if (expiryDate.isNotEmpty)
+                                                'කල් ඉකුත් වීම: ' + expiryDate +
+                                                    (isExpiryAlert
+                                                        ? ' • ' + (expiryDays! < 0 ? 'කල් ඉකුත් වී ඇත' : expiryDays == 0 ? 'අද' : 'දින ' + expiryDays.toString() + 'කින්')
+                                                        : ''),
                                             ].join('\\n')),
                                           ],
                                         ),
