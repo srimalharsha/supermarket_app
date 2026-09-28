@@ -1560,17 +1560,27 @@ class _BillHistoryPageState extends State<BillHistoryPage> {
 
 class NewBillPage extends StatefulWidget {
   const NewBillPage({super.key});
+
   @override
   State<NewBillPage> createState() => _NewBillPageState();
 }
 
 class _NewBillPageState extends State<NewBillPage> {
   final List<_BillItem> _items = [];
+  final TextEditingController _searchController = TextEditingController();
   bool _saving = false;
+  String _searchQuery = '';
+  String _manualCategory = 'සියලුම භාණ්ඩ';
 
   double get _total => _items.fold(0, (sum, item) => sum + item.total);
   int get _itemCount => _items.fold(0, (sum, item) => sum + item.quantity);
   String get _todayKey => DateTime.now().toIso8601String().substring(0, 10);
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Future<void> _scanAndAdd() async {
     final code = await Navigator.push<String>(
@@ -1579,10 +1589,9 @@ class _NewBillPageState extends State<NewBillPage> {
     );
     if (!mounted || code == null || code.trim().isEmpty) return;
 
-    final barcode = code.trim();
     final snapshot = await FirebaseFirestore.instance
         .collection('products')
-        .where('barcode', isEqualTo: barcode)
+        .where('barcode', isEqualTo: code.trim())
         .limit(1)
         .get();
 
@@ -1597,16 +1606,20 @@ class _NewBillPageState extends State<NewBillPage> {
       return;
     }
 
-    final doc = snapshot.docs.first;
-    final data = doc.data();
+    await _addProduct(snapshot.docs.first);
+  }
+
+  Future<void> _addProduct(DocumentSnapshot<Map<String, dynamic>> doc) async {
+    final data = doc.data() ?? {};
     final name = (data['name'] ?? 'නම නොමැත').toString();
+    final barcode = (data['barcode'] ?? '').toString();
     final price = (data['sellingPrice'] as num?)?.toDouble() ?? 0;
     final stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
     final imageUrl = (data['imageUrl'] ?? '').toString();
 
     if (price <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(name + ' සඳහා විකිණුම් මිලක් නැහැ.')),
+        SnackBar(content: Text('$name සඳහා විකිණුම් මිලක් නැහැ.')),
       );
       return;
     }
@@ -1617,7 +1630,7 @@ class _NewBillPageState extends State<NewBillPage> {
     if (stock <= 0 || currentQty + 1 > stock) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(name + ' සඳහා තිබෙන තොගය ' + stock.toString() + ' යි.'),
+          content: Text('$name සඳහා තිබෙන තොගය $stock යි.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -1639,6 +1652,13 @@ class _NewBillPageState extends State<NewBillPage> {
         ));
       }
     });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$name බිල්පතට එකතු කළා.'),
+        duration: const Duration(milliseconds: 900),
+      ),
+    );
   }
 
   void _changeQuantity(int index, int change) {
@@ -1646,7 +1666,8 @@ class _NewBillPageState extends State<NewBillPage> {
     final newQty = item.quantity + change;
     if (newQty <= 0) {
       setState(() => _items.removeAt(index));
-      return;    }
+      return;
+    }
     if (newQty > item.stock) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(item.name + ' සඳහා තිබෙන තොගය ' + item.stock.toString() + ' යි.')),
@@ -1678,7 +1699,6 @@ class _NewBillPageState extends State<NewBillPage> {
       final billRef = firestore.collection('bills').doc();
       final salesRef = firestore.collection('dailySales').doc(_todayKey);
       final savedTotal = _total;
-      final savedItemCount = _itemCount;
 
       await firestore.runTransaction((transaction) async {
         final latest = <String, DocumentSnapshot<Map<String, dynamic>>>{};
@@ -1732,7 +1752,6 @@ class _NewBillPageState extends State<NewBillPage> {
         );
       });
 
-      if (!mounted) return;
       if (!mounted) return;
 
       final receiptItems = _items.map((item) => <String, dynamic>{
@@ -1796,221 +1815,435 @@ class _NewBillPageState extends State<NewBillPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('🧾 අලුත් බිල්පත', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
+  Widget _billItemsList() {
+    if (_items.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.receipt_long, size: 72, color: Colors.grey),
+            SizedBox(height: 12),
+            Text('බිල්පත සකස් කිරීමට පටන් ගන්න',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(height: 6),
+            Text('බාර්කෝඩ් ස්කෑන් කරන්න හෝ භාණ්ඩය සොයන්න',
+                style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      itemCount: _items.length,
+      itemBuilder: (context, index) {
+        final item = _items[index];
+        return Card(
+          elevation: 1,
+          margin: const EdgeInsets.only(bottom: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
               children: [
-                const Icon(Icons.point_of_sale, color: Colors.white, size: 34),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('විකුණුම් බිල්පත',
-                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                      SizedBox(height: 3),
-                      Text('භාණ්ඩ ස්කෑන් කර ප්‍රමාණය ඇතුළත් කරන්න',
-                          style: TextStyle(color: Colors.white70, fontSize: 12)),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('භාණ්ඩ', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                    Text(_itemCount.toString(),
-                        style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                    _productImage(item),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 3),
+                          Text('විකුණුම් මිල  Rs. ' + item.price.toStringAsFixed(2),
+                              style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                          const SizedBox(height: 4),
+                          Text('අයිතම එකතුව  Rs. ' + item.total.toStringAsFixed(2),
+                              style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'ඉවත් කරන්න',
+                      onPressed: () => setState(() => _items.removeAt(index)),
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+                Row(
+                  children: [
+                    const Text('ප්‍රමාණය', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      onPressed: () => _changeQuantity(index, -1),
+                      icon: const Icon(Icons.remove_circle_outline),
+                    ),
+                    SizedBox(
+                      width: 62,
+                      height: 42,
+                      child: TextFormField(
+                        key: ValueKey(item.docId + '_' + item.quantity.toString()),
+                        initialValue: item.quantity.toString(),
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onFieldSubmitted: (value) => _setQuantity(index, value),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => _changeQuantity(index, 1),
+                      icon: const Icon(Icons.add_circle_outline),
+                    ),
+                    const Spacer(),
+                    Text('තොගයේ ' + item.stock.toString(),
+                        style: const TextStyle(color: Colors.grey, fontSize: 12)),
                   ],
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: _saving ? null : _scanAndAdd,
-                icon: const Icon(Icons.qr_code_scanner),
-                label: const Text('බාර්කෝඩ් ස්කෑන් කර භාණ්ඩය එකතු කරන්න',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ),
-          Expanded(
-            child: _items.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.receipt_long, size: 72, color: Colors.grey),
-                        SizedBox(height: 12),
-                        Text('බිල්පත සකස් කිරීමට පටන් ගන්න',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        SizedBox(height: 6),
-                        Text('බාර්කෝඩ් එක ස්කෑන් කරන්න',
-                            style: TextStyle(color: Colors.grey)),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                    itemCount: _items.length,
-                    itemBuilder: (context, index) {
-                      final item = _items[index];
-                      return Card(
-                        elevation: 1,
-                        margin: const EdgeInsets.only(bottom: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _productImage(item),
-                                  const SizedBox(width: 11),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(item.name,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 3),
-                                        Text('විකුණුම් මිල  Rs. ' + item.price.toStringAsFixed(2),
-                                            style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                                        const SizedBox(height: 4),
-                                        Text('අයිතම එකතුව  Rs. ' + item.total.toStringAsFixed(2),
-                                            style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold)),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'ඉවත් කරන්න',
-                                    onPressed: () => setState(() => _items.removeAt(index)),
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                  ),
-                                ],
-                              ),
-                              const Divider(height: 20),
-                              Row(
-                                children: [
-                                  const Text('ප්‍රමාණය',
-                                      style: TextStyle(fontWeight: FontWeight.w600)),
-                                  const SizedBox(width: 12),
-                                  IconButton(
-                                    onPressed: () => _changeQuantity(index, -1),
-                                    icon: const Icon(Icons.remove_circle_outline),
-                                  ),
-                                  SizedBox(
-                                    width: 62,
-                                    height: 42,
-                                    child: TextFormField(
-                                      key: ValueKey(item.docId + '_' + item.quantity.toString()),
-                                      initialValue: item.quantity.toString(),
-                                      textAlign: TextAlign.center,
-                                      keyboardType: TextInputType.number,
-                                      decoration: InputDecoration(
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                      ),
-                                      onFieldSubmitted: (value) => _setQuantity(index, value),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    onPressed: () => _changeQuantity(index, 1),
-                                    icon: const Icon(Icons.add_circle_outline),
-                                  ),
-                                  const Spacer(),
-                                  Text('තොගයේ ' + item.stock.toString(),
-                                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
+        );
+      },
+    );
+  }
+
+  Widget _barcodeTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  blurRadius: 12,
-                  offset: const Offset(0, -3),
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.green.shade100),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.qr_code_scanner, size: 70, color: Colors.green.shade700),
+                const SizedBox(height: 12),
+                const Text('බාර්කෝඩ් මගින් එකතු කරන්න',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 7),
+                const Text('භාණ්ඩයේ බාර්කෝඩ් එක ස්කෑන් කළ විට නම, මිල සහ තොගය ස්වයංක්‍රීයව ලැබේ.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : _scanAndAdd,
+                    icon: const Icon(Icons.qr_code_scanner),
+                    label: const Text('බාර්කෝඩ් ස්කෑන් කරන්න',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
                 ),
               ],
             ),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('භාණ්ඩ ' + _items.length.toString() + 'ක් • ඒකක ' + _itemCount.toString(),
-                          style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                      const Text('මුළු මුදල',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('ගෙවිය යුතු මුදල',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text('Rs. ' + _total.toStringAsFixed(2),
-                          style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800, color: Colors.green.shade700)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: FilledButton.icon(
-                      onPressed: _items.isEmpty || _saving ? null : _saveBill,
-                      icon: _saving
-                          ? const SizedBox(
-                              width: 21,
-                              height: 21,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.save_alt),
-                      label: Text(_saving ? 'බිල්පත සුරැකෙමින්...' : 'බිල්පත සුරකින්න',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 16),
+          if (_items.isNotEmpty) ...[
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('බිල්පතේ භාණ්ඩ',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(height: 250, child: _billItemsList()),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _manualTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (value) => setState(() => _searchQuery = value.trim().toLowerCase()),
+            decoration: InputDecoration(
+              hintText: 'භාණ්ඩ නම හෝ බාර්කෝඩ් සොයන්න...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchQuery.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
                     ),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: DropdownButtonFormField<String>(
+            value: _manualCategory,
+            decoration: InputDecoration(
+              labelText: 'භාණ්ඩ වර්ගය තෝරන්න',
+              prefixIcon: const Icon(Icons.category_outlined),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            items: supermarketCategories.map(
+              (category) => DropdownMenuItem(value: category, child: Text(category)),
+            ).toList(),
+            onChanged: (value) {
+              if (value != null) setState(() => _manualCategory = value);
+            },
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(14, 5, 14, 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text('සෙවුමට ගැලපෙන භාණ්ඩ',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance.collection('products').snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Center(child: Text('භාණ්ඩ ලැයිස්තුව ලබාගැනීමේදී දෝෂයක් ඇතිවුණා.'));
+              }
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final docs = snapshot.data!.docs.where((doc) {
+                final data = doc.data();
+                final name = (data['name'] ?? '').toString().toLowerCase();
+                final barcode = (data['barcode'] ?? '').toString().toLowerCase();
+                final category = (data['category'] ?? '').toString();
+                final matchesSearch = _searchQuery.isEmpty ||
+                    name.contains(_searchQuery) ||
+                    barcode.contains(_searchQuery);
+                final matchesCategory = _manualCategory == 'සියලුම භාණ්ඩ' ||
+                    category == _manualCategory;
+                final stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
+                return matchesSearch && matchesCategory && stock > 0;
+              }).toList();
+
+              if (docs.isEmpty) {
+                return const Center(
+                  child: Text('ගැලපෙන භාණ්ඩ හමු වුණේ නැහැ.',
+                      style: TextStyle(color: Colors.grey)),
+                );
+              }
+
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                itemCount: docs.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final doc = docs[index];
+                  final data = doc.data();
+                  final name = (data['name'] ?? 'නම නැත').toString();
+                  final barcode = (data['barcode'] ?? '').toString();
+                  final category = (data['category'] ?? 'වෙනත්').toString();
+                  final price = (data['sellingPrice'] as num?)?.toDouble() ?? 0;
+                  final stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
+                  final imageUrl = (data['imageUrl'] ?? '').toString();
+
+                  return Card(
+                    margin: EdgeInsets.zero,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      leading: imageUrl.isEmpty
+                          ? Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(Icons.shopping_bag, color: Colors.green.shade700),
+                            )
+                          : ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(
+                                imageUrl,
+                                width: 52,
+                                height: 52,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 52,
+                                  height: 52,
+                                  color: Colors.green.shade50,
+                                  child: Icon(Icons.shopping_bag, color: Colors.green.shade700),
+                                ),
+                              ),
+                            ),
+                      title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(
+                        'Rs. ' + price.toStringAsFixed(2) +
+                            '  •  තොගය $stock  •  ' + category +
+                            (barcode.isEmpty ? '' : '\nබාර්කෝඩ්: $barcode'),
+                      ),
+                      isThreeLine: barcode.isNotEmpty,
+                      trailing: IconButton(
+                        tooltip: 'බිල්පතට එකතු කරන්න',
+                        onPressed: _saving ? null : () => _addProduct(doc),
+                        icon: const Icon(Icons.add_circle, color: Colors.green, size: 32),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('🧾 අලුත් බිල්පත',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        bottom: const TabBar(
+          tabs: [
+            Tab(icon: Icon(Icons.qr_code_scanner), text: 'බාර්කෝඩ්'),
+            Tab(icon: Icon(Icons.search), text: 'Manual Add'),
+          ],
+        ),
+      ),
+      body: DefaultTabController(
+        length: 2,
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.point_of_sale, color: Colors.white, size: 34),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('විකුණුම් බිල්පත',
+                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                        SizedBox(height: 3),
+                        Text('බාර්කෝඩ් හෝ භාණ්ඩ සෙවුමෙන් ඉක්මනින් බිල්පත සකස් කරන්න',
+                            style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('භාණ්ඩ', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                      Text(_itemCount.toString(),
+                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                    ],
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _barcodeTab(),
+                  _manualTab(),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.10),
+                    blurRadius: 12,
+                    offset: const Offset(0, -3),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('භාණ්ඩ ' + _items.length.toString() + 'ක් • ඒකක ' + _itemCount.toString(),
+                            style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                        const Text('මුළු මුදල',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('ගෙවිය යුතු මුදල',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text('Rs. ' + _total.toStringAsFixed(2),
+                            style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800, color: Colors.green.shade700)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: FilledButton.icon(
+                        onPressed: _items.isEmpty || _saving ? null : _saveBill,
+                        icon: _saving
+                            ? const SizedBox(
+                                width: 21,
+                                height: 21,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.save_alt),
+                        label: Text(_saving ? 'බිල්පත සුරැකෙමින්...' : 'බිල්පත සුරකින්න',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
