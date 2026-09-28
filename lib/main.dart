@@ -1520,7 +1520,7 @@ class _NewBillPageState extends State<NewBillPage> {
   bool _saving = false;
 
   double get _total => _items.fold(0, (sum, item) => sum + item.total);
-
+  int get _itemCount => _items.fold(0, (sum, item) => sum + item.quantity);
   String get _todayKey => DateTime.now().toIso8601String().substring(0, 10);
 
   Future<void> _scanAndAdd() async {
@@ -1540,9 +1540,10 @@ class _NewBillPageState extends State<NewBillPage> {
     if (!mounted) return;
     if (snapshot.docs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(
-          'මෙම බාර්කෝඩ් එකට භාණ්ඩයක් හමු වුණේ නැහැ. මුලින් භාණ්ඩය තොගයට එකතු කරන්න.',
-        )),
+        const SnackBar(
+          content: Text('මෙම බාර්කෝඩ් එකට භාණ්ඩයක් හමු වුණේ නැහැ. මුලින් භාණ්ඩය තොගයට එකතු කරන්න.'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -1562,12 +1563,14 @@ class _NewBillPageState extends State<NewBillPage> {
     }
 
     final existingIndex = _items.indexWhere((item) => item.docId == doc.id);
-    final currentQty =
-        existingIndex >= 0 ? _items[existingIndex].quantity : 0;
+    final currentQty = existingIndex >= 0 ? _items[existingIndex].quantity : 0;
 
-    if (currentQty + 1 > stock) {
+    if (stock <= 0 || currentQty + 1 > stock) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(name + ' සඳහා තිබෙන තොගය ' + stock.toString() + ' යි.')),
+        SnackBar(
+          content: Text(name + ' සඳහා තිබෙන තොගය ' + stock.toString() + ' යි.'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -1587,10 +1590,6 @@ class _NewBillPageState extends State<NewBillPage> {
         ));
       }
     });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(name + ' බිල්පතට එකතු කළා.')),
-    );
   }
 
   void _changeQuantity(int index, int change) {
@@ -1602,12 +1601,24 @@ class _NewBillPageState extends State<NewBillPage> {
     }
     if (newQty > item.stock) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(item.name + ' සඳහා තිබෙන තොගය ' +
-            item.stock.toString() + ' යි.')),
+        SnackBar(content: Text(item.name + ' සඳහා තිබෙන තොගය ' + item.stock.toString() + ' යි.')),
       );
       return;
     }
     setState(() => item.quantity = newQty);
+  }
+
+  void _setQuantity(int index, String value) {
+    final qty = int.tryParse(value.trim());
+    if (qty == null || qty < 1) return;
+    final item = _items[index];
+    if (qty > item.stock) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(item.name + ' සඳහා තිබෙන තොගය ' + item.stock.toString() + ' යි.')),
+      );
+      return;
+    }
+    setState(() => item.quantity = qty);
   }
 
   Future<void> _saveBill() async {
@@ -1618,6 +1629,8 @@ class _NewBillPageState extends State<NewBillPage> {
       final firestore = FirebaseFirestore.instance;
       final billRef = firestore.collection('bills').doc();
       final salesRef = firestore.collection('dailySales').doc(_todayKey);
+      final savedTotal = _total;
+      final savedItemCount = _itemCount;
 
       await firestore.runTransaction((transaction) async {
         final latest = <String, DocumentSnapshot<Map<String, dynamic>>>{};
@@ -1633,14 +1646,10 @@ class _NewBillPageState extends State<NewBillPage> {
             throw Exception('භාණ්ඩය හමු වුණේ නැහැ: ' + item.name);
           }
           final data = snap.data()!;
-          final currentStock =
-              (data['stockQuantity'] as num?)?.toInt() ?? 0;
-
+          final currentStock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
           if (currentStock < item.quantity) {
-            throw Exception(item.name + ' සඳහා ප්‍රමාණවත් තොගයක් නැහැ. දැන් තිබෙන්නේ ' +
-                currentStock.toString() + ' යි.');
+            throw Exception(item.name + ' සඳහා ප්‍රමාණවත් තොගයක් නැහැ. දැන් තිබෙන්නේ ' + currentStock.toString() + ' යි.');
           }
-
           transaction.update(snap.reference, {
             'stockQuantity': currentStock - item.quantity,
           });
@@ -1658,7 +1667,7 @@ class _NewBillPageState extends State<NewBillPage> {
         transaction.set(billRef, {
           'billNumber': billRef.id,
           'items': billItems,
-          'total': _total,
+          'total': savedTotal,
           'createdAt': FieldValue.serverTimestamp(),
           'dateKey': _todayKey,
         });
@@ -1668,7 +1677,7 @@ class _NewBillPageState extends State<NewBillPage> {
           {
             'dateKey': _todayKey,
             'billCount': FieldValue.increment(1),
-            'revenue': FieldValue.increment(_total),
+            'revenue': FieldValue.increment(savedTotal),
             'updatedAt': FieldValue.serverTimestamp(),
           },
           SetOptions(merge: true),
@@ -1676,18 +1685,26 @@ class _NewBillPageState extends State<NewBillPage> {
       });
 
       if (!mounted) return;
-      final savedTotal = _total;
       await showDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('බිල්පත සාර්ථකයි ✅'),
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green, size: 30),
+              SizedBox(width: 8),
+              Expanded(child: Text('බිල්පත සාර්ථකව සුරැකුණා')),
+            ],
+          ),
           content: Text(
-            'මුළු මුදල: Rs. ' + savedTotal.toStringAsFixed(2) +
-            '\nඅද ආදායමටත් එකතු කළා.',
+            'භාණ්ඩ ගණන: ' + savedItemCount.toString() + '\n'
+            'මුළු මුදල: Rs. ' + savedTotal.toStringAsFixed(2) + '\n\n'
+            'තොගයෙන් අඩු කර අද ආදායමටත් එකතු කළා.',
           ),
           actions: [
             FilledButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('හරි'),
             ),
           ],
@@ -1699,8 +1716,7 @@ class _NewBillPageState extends State<NewBillPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('බිල්පත සුරැකීමට නොහැකි වුණා: ' +
-              e.toString().replaceFirst('Exception: ', '')),
+          content: Text('බිල්පත සුරැකීමට නොහැකි වුණා: ' + e.toString().replaceFirst('Exception: ', '')),
           backgroundColor: Colors.red,
         ),
       );
@@ -1709,21 +1725,90 @@ class _NewBillPageState extends State<NewBillPage> {
     }
   }
 
+  Widget _productImage(_BillItem item) {
+    if (item.imageUrl.isEmpty) {
+      return Container(
+        width: 58,
+        height: 58,
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(Icons.shopping_bag, color: Colors.green.shade700),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        item.imageUrl,
+        width: 58,
+        height: 58,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: 58,
+          height: 58,
+          color: Colors.green.shade50,
+          child: Icon(Icons.shopping_bag, color: Colors.green.shade700),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('අලුත් බිල්පත')),
+      appBar: AppBar(
+        title: const Text('🧾 අලුත් බිල්පත', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+      ),
       body: Column(
         children: [
+          Container(
+            margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.point_of_sale, color: Colors.white, size: 34),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('විකුණුම් බිල්පත',
+                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      SizedBox(height: 3),
+                      Text('භාණ්ඩ ස්කෑන් කර ප්‍රමාණය ඇතුළත් කරන්න',
+                          style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text('භාණ්ඩ', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                    Text(_itemCount.toString(),
+                        style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ],
+            ),
+          ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: SizedBox(
               width: double.infinity,
-              height: 54,
+              height: 52,
               child: FilledButton.icon(
                 onPressed: _saving ? null : _scanAndAdd,
                 icon: const Icon(Icons.qr_code_scanner),
-                label: const Text('බාර්කෝඩ් ස්කෑන් කර භාණ්ඩය එකතු කරන්න'),
+                label: const Text('බාර්කෝඩ් ස්කෑන් කර භාණ්ඩය එකතු කරන්න',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ),
@@ -1733,80 +1818,90 @@ class _NewBillPageState extends State<NewBillPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.receipt_long, size: 70, color: Colors.grey),
-                        SizedBox(height: 10),
-                        Text(
-                          'බිල්පත හිස්.\nබාර්කෝඩ් එකක් ස්කෑන් කරන්න.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey, fontSize: 16),
-                        ),
+                        Icon(Icons.receipt_long, size: 72, color: Colors.grey),
+                        SizedBox(height: 12),
+                        Text('බිල්පත සකස් කිරීමට පටන් ගන්න',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        SizedBox(height: 6),
+                        Text('බාර්කෝඩ් එක ස්කෑන් කරන්න',
+                            style: TextStyle(color: Colors.grey)),
                       ],
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                     itemCount: _items.length,
                     itemBuilder: (context, index) {
                       final item = _items[index];
                       return Card(
+                        elevation: 1,
                         margin: const EdgeInsets.only(bottom: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         child: Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Row(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
                             children: [
-                              if (item.imageUrl.isNotEmpty)
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    item.imageUrl,
-                                    width: 58,
-                                    height: 58,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        const Icon(Icons.shopping_bag, size: 42),
-                                  ),
-                                )
-                              else
-                                const SizedBox(
-                                  width: 58,
-                                  height: 58,
-                                  child: Icon(Icons.shopping_bag, size: 42),
-                                ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(item.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        )),
-                                    Text('Rs. ' + item.price.toStringAsFixed(2)),
-                                    Text('එකතුව: Rs. ' +
-                                        item.total.toStringAsFixed(2),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        )),
-                                  ],
-                                ),
-                              ),
                               Row(
-                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  _productImage(item),
+                                  const SizedBox(width: 11),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(item.name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 3),
+                                        Text('විකුණුම් මිල  Rs. ' + item.price.toStringAsFixed(2),
+                                            style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                        const SizedBox(height: 4),
+                                        Text('අයිතම එකතුව  Rs. ' + item.total.toStringAsFixed(2),
+                                            style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'ඉවත් කරන්න',
+                                    onPressed: () => setState(() => _items.removeAt(index)),
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 20),
+                              Row(
+                                children: [
+                                  const Text('ප්‍රමාණය',
+                                      style: TextStyle(fontWeight: FontWeight.w600)),
+                                  const SizedBox(width: 12),
                                   IconButton(
                                     onPressed: () => _changeQuantity(index, -1),
                                     icon: const Icon(Icons.remove_circle_outline),
                                   ),
-                                  Text(item.quantity.toString(),
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      )),
+                                  SizedBox(
+                                    width: 62,
+                                    height: 42,
+                                    child: TextFormField(
+                                      key: ValueKey(item.docId + '_' + item.quantity.toString()),
+                                      initialValue: item.quantity.toString(),
+                                      textAlign: TextAlign.center,
+                                      keyboardType: TextInputType.number,
+                                      decoration: InputDecoration(
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                      ),
+                                      onFieldSubmitted: (value) => _setQuantity(index, value),
+                                    ),
+                                  ),
                                   IconButton(
                                     onPressed: () => _changeQuantity(index, 1),
                                     icon: const Icon(Icons.add_circle_outline),
                                   ),
+                                  const Spacer(),
+                                  Text('තොගයේ ' + item.stock.toString(),
+                                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
                                 ],
                               ),
                             ],
@@ -1817,14 +1912,15 @@ class _NewBillPageState extends State<NewBillPage> {
                   ),
           ),
           Container(
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
             decoration: BoxDecoration(
               color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
+                  color: Colors.black.withValues(alpha: 0.10),
+                  blurRadius: 12,
+                  offset: const Offset(0, -3),
                 ),
               ],
             ),
@@ -1835,27 +1931,37 @@ class _NewBillPageState extends State<NewBillPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('මුළු බිල්පත් මුදල',
-                          style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+                      Text('භාණ්ඩ ' + _items.length.toString() + 'ක් • ඒකක ' + _itemCount.toString(),
+                          style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                      const Text('මුළු මුදල',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('ගෙවිය යුතු මුදල',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       Text('Rs. ' + _total.toStringAsFixed(2),
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                          style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800, color: Colors.green.shade700)),
                     ],
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    height: 52,
+                    height: 54,
                     child: FilledButton.icon(
                       onPressed: _items.isEmpty || _saving ? null : _saveBill,
                       icon: _saving
                           ? const SizedBox(
-                              width: 20, height: 20,
+                              width: 21,
+                              height: 21,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.check_circle),
-                      label: Text(_saving
-                          ? 'බිල්පත සුරැකෙමින්...'
-                          : 'බිල්පත සම්පූර්ණ කරන්න'),
+                          : const Icon(Icons.save_alt),
+                      label: Text(_saving ? 'බිල්පත සුරැකෙමින්...' : 'බිල්පත සුරකින්න',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
