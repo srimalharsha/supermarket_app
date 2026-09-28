@@ -1429,43 +1429,77 @@ class _AddProductPageState extends State<AddProductPage> {
 
   Future<void> _captureProductImage() async {
     if (_uploadingImage) return;
+
     try {
       if (mounted) setState(() => _uploadingImage = true);
+
       final file = await _imagePicker.pickImage(
-        source: ImageSource.camera, imageQuality: 70, maxWidth: 1000, maxHeight: 1000,
+        source: ImageSource.camera,
+        imageQuality: 60,
+        maxWidth: 900,
+        maxHeight: 900,
       );
-      if (file == null) return;
+
+      if (file == null) {
+        if (mounted) setState(() => _uploadingImage = false);
+        return;
+      }
+
       final bytes = await file.readAsBytes();
       if (bytes.isEmpty) throw Exception('Photo file එක හිස්.');
       if (bytes.length > 5 * 1024 * 1024) {
-        throw Exception('Photo එක 5MB ට වඩා වැඩියි. කරුණාකර නැවත Photo එකක් ගන්න.');
+        throw Exception('Photo එක 5MB ට වඩා වැඩියි. නැවත Photo එකක් ගන්න.');
       }
-      final fileName = 'products/product_' + DateTime.now().millisecondsSinceEpoch.toString() + '.jpg';
+
+      final fileName =
+          'products/product_' + DateTime.now().millisecondsSinceEpoch.toString() + '.jpg';
       final ref = FirebaseStorage.instance.ref().child(fileName);
-      final uploadTask = ref.putData(bytes, SettableMetadata(
-        contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000',
-      ));
-      await uploadTask.timeout(const Duration(seconds: 45), onTimeout: () async {
-        await uploadTask.cancel();
-        throw Exception('Photo upload එක විනාඩියකට ආසන්න කාලයක් ගත වුණා. Internet/Firebase Storage පරීක්ෂා කරන්න.');
-      });
+
+      // putData works for both Android and Web.
+      final uploadTask = ref.putData(
+        bytes,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          cacheControl: 'public,max-age=31536000',
+        ),
+      );
+
+      await uploadTask.timeout(
+        const Duration(seconds: 60),
+        onTimeout: () async {
+          await uploadTask.cancel();
+          throw Exception(
+            'Photo upload එක timeout වුණා. Internet connection එක සහ Firebase Storage පරීක්ෂා කරන්න.',
+          );
+        },
+      );
+
       final url = await ref.getDownloadURL().timeout(
         const Duration(seconds: 20),
-        onTimeout: () => throw Exception('Photo upload වුණා, නමුත් image URL එක ලබාගන්න බැරි වුණා.'),
+        onTimeout: () => throw Exception(
+          'Photo upload වුණා, නමුත් image URL එක ලබාගන්න බැරි වුණා.',
+        ),
       );
+
       if (!mounted) return;
       setState(() => _imageUrl = url);
-      _showMessage('භාණ්ඩයේ Photo එක සාර්ථකව upload කළා.');
+      _showMessage('✅ භාණ්ඩයේ Photo එක upload කළා.');
     } on FirebaseException catch (e) {
-      if (mounted) _showMessage(
-        'Photo upload error: ' + e.code + (e.message == null ? '' : ' - ' + e.message!),
-        isError: true,
-      );
+      if (mounted) {
+        _showMessage(
+          'Photo upload error: ' + e.code +
+              (e.message == null ? '' : '\n' + e.message!),
+          isError: true,
+        );
+      }
     } catch (e) {
-      if (mounted) _showMessage(
-        'Photo එක upload කිරීමට නොහැකි වුණා: ' + e.toString().replaceFirst('Exception: ', ''),
-        isError: true,
-      );
+      if (mounted) {
+        _showMessage(
+          'Photo upload කිරීමට නොහැකි වුණා: ' +
+              e.toString().replaceFirst('Exception: ', ''),
+          isError: true,
+        );
+      }
     } finally {
       if (mounted) setState(() => _uploadingImage = false);
     }
