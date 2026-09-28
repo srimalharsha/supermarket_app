@@ -102,6 +102,134 @@ class LoginPage extends StatefulWidget {
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
+class AdminSetupPage extends StatefulWidget {
+  const AdminSetupPage({super.key});
+  @override
+  State<AdminSetupPage> createState() => _AdminSetupPageState();
+}
+
+class _AdminSetupPageState extends State<AdminSetupPage> {
+  final _shop = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _loading = false;
+  bool _obscure = true;
+
+  Future<void> _createAdmin() async {
+    final shop = _shop.text.trim();
+    final email = _email.text.trim();
+    final password = _password.text;
+    if (shop.isEmpty || email.isEmpty || password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Shop Name, Email සහ අවම අක්ෂර 6ක Password එකක් ඇතුළත් කරන්න.')),
+      );
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final existing = await FirebaseFirestore.instance.collection('admins').limit(1).get();
+      if (existing.docs.isNotEmpty) {
+        throw Exception('Admin account එක දැනටමත් setup කර ඇත.');
+      }
+
+      final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      await FirebaseFirestore.instance.collection('admins').doc(credential.user!.uid).set({
+        'email': email,
+        'shopName': shop,
+        'active': true,
+        'role': 'admin',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Admin account එක සාර්ථකව සාදා ඇත.')),
+      );
+      Navigator.of(context).pop();
+    } on FirebaseAuthException catch (e) {
+      var message = 'Admin account එක සාදන්න බැරි වුණා.';
+      if (e.code == 'email-already-in-use') message = 'මෙම Email එක දැනටමත් භාවිතා කර ඇත.';
+      if (e.code == 'invalid-email') message = 'Email එක නිවැරදිව ඇතුළත් කරන්න.';
+      if (e.code == 'weak-password') message = 'Password එක තවත් ශක්තිමත් කරන්න.';
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _shop.dispose();
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('🔐 Admin Setup')),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 430),
+            child: Card(
+              elevation: 5,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    const Icon(Icons.admin_panel_settings, size: 64, color: Colors.green),
+                    const SizedBox(height: 12),
+                    const Text('පළමු Admin Account එක', style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    const Text('මෙය පළමු වරට පමණක් setup කරන්න.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                    const SizedBox(height: 22),
+                    TextField(controller: _shop, decoration: const InputDecoration(labelText: 'Shop Name', prefixIcon: Icon(Icons.store), border: OutlineInputBorder())),
+                    const SizedBox(height: 14),
+                    TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Admin Email', prefixIcon: Icon(Icons.email), border: OutlineInputBorder())),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _password,
+                      obscureText: _obscure,
+                      decoration: InputDecoration(
+                        labelText: 'Admin Password',
+                        helperText: 'අවම අක්ෂර 6ක්',
+                        prefixIcon: const Icon(Icons.lock),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                          icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: FilledButton.icon(
+                        onPressed: _loading ? null : _createAdmin,
+                        icon: _loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.admin_panel_settings),
+                        label: Text(_loading ? 'Setup වෙමින්...' : 'Admin Account සාදන්න'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _LoginPageState extends State<LoginPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -223,8 +351,18 @@ class _LoginPageState extends State<LoginPage> {
                         child: const Text('Password අමතකද?'),
                       ),
                       const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _loading ? null : () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const AdminSetupPage()),
+                          );
+                        },
+                        icon: const Icon(Icons.admin_panel_settings),
+                        label: const Text('පළමු Admin Account එක Setup කරන්න'),
+                      ),
+                      const SizedBox(height: 12),
                       const Text(
-                        'Registration නැත. Account ලබාගන්නේ App Admin හරහා පමණි.',
+                        'Registration නැත. Customer Account ලබාගන්නේ App Admin හරහා පමණි.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.grey, fontSize: 12),
                       ),
