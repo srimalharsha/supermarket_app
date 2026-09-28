@@ -1459,45 +1459,94 @@ class _BillHistoryPageState extends State<BillHistoryPage> {
                     final billNumber =
                         (data['billNumber'] ?? doc.id).toString();
 
+                    final receiptItems = items.map<Map<String, dynamic>>((raw) {
+                      final item = Map<String, dynamic>.from(raw as Map);
+                      return {
+                        'name': (item['name'] ?? '').toString(),
+                        'barcode': (item['barcode'] ?? '').toString(),
+                        'price': (item['price'] as num?)?.toDouble() ?? 0,
+                        'quantity': (item['quantity'] as num?)?.toInt() ?? 0,
+                        'total': (item['total'] as num?)?.toDouble() ?? 0,
+                      };
+                    }).toList();
+
                     return Card(
                       margin: const EdgeInsets.only(bottom: 10),
                       child: ExpansionTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.receipt_long),
-                        ),
+                        leading: const CircleAvatar(child: Icon(Icons.receipt_long)),
                         title: Text(
-                          'බිල්පත ${billNumber.length > 8 ? billNumber.substring(0, 8) : billNumber}',
+                          'බිල්පත ' + (billNumber.length > 8 ? billNumber.substring(0, 8) : billNumber),
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Text(
-                          '${items.length} භාණ්ඩ  •  Rs. ${total.toStringAsFixed(2)}',
+                          items.length.toString() + ' භාණ්ඩ  •  Rs. ' + total.toStringAsFixed(2),
                         ),
-                        trailing: canDelete
-                            ? IconButton(
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'සම්පූර්ණ බිල්පත',
+                              icon: const Icon(Icons.receipt_long, color: Colors.green),
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => BillReceiptPage(
+                                    billNumber: billNumber,
+                                    dateKey: (data['dateKey'] ?? key).toString(),
+                                    items: receiptItems,
+                                    total: total,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (canDelete)
+                              IconButton(
                                 tooltip: 'මකන්න',
                                 icon: const Icon(Icons.delete, color: Colors.red),
                                 onPressed: () => _deleteBill(doc),
                               )
-                            : const Icon(Icons.expand_more),
+                            else
+                              const Icon(Icons.expand_more),
+                          ],
+                        ),
                         children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => BillReceiptPage(
+                                      billNumber: billNumber,
+                                      dateKey: (data['dateKey'] ?? key).toString(),
+                                      items: receiptItems,
+                                      total: total,
+                                    ),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.print_outlined),
+                                label: const Text('🧾 සම්පූර්ණ බිල්පත බලන්න / Print / Image Share'),
+                              ),
+                            ),
+                          ),
                           for (final raw in items)
                             ListTile(
                               dense: true,
                               title: Text((raw['name'] ?? '').toString()),
                               subtitle: Text(
-                                '${raw['quantity'] ?? 0} x Rs. ${
-                                  ((raw['price'] as num?)?.toDouble() ?? 0)
-                                      .toStringAsFixed(2)
-                                }',
+                                raw['quantity'].toString() + ' x Rs. ' +
+                                ((raw['price'] as num?)?.toDouble() ?? 0).toStringAsFixed(2),
                               ),
                               trailing: Text(
-                                'Rs. ${((raw['total'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)}',
+                                'Rs. ' + ((raw['total'] as num?)?.toDouble() ?? 0).toStringAsFixed(2),
                                 style: const TextStyle(fontWeight: FontWeight.w600),
                               ),
                             ),
                         ],
                       ),
-                    );
+                    ); );
                   },
                 );
               },
