@@ -636,6 +636,10 @@ class _AdminPanelState extends State<AdminPanel> {
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
+  Future<void> _logout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+  }
+
   void _openAddProduct(BuildContext context) {
     Navigator.push(
       context,
@@ -659,9 +663,9 @@ class HomePage extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 12),
+        actions: [
+          const Padding(
+            padding: EdgeInsets.only(right: 4),
             child: Center(
               child: Text(
                 'නිර්මාණය: Srimal Harsha',
@@ -672,6 +676,11 @@ class HomePage extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+          IconButton(
+            tooltip: 'Logout',
+            onPressed: () => _logout(context),
+            icon: const Icon(Icons.logout),
           ),
         ],
       ),
