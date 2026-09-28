@@ -2125,21 +2125,21 @@ class _NewBillPageState extends State<NewBillPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('🧾 අලුත් බිල්පත',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        bottom: const TabBar(
-          tabs: [
-            Tab(icon: Icon(Icons.qr_code_scanner), text: 'බාර්කෝඩ්'),
-            Tab(icon: Icon(Icons.search), text: 'Manual Add'),
-          ],
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('🧾 අලුත් බිල්පත',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          centerTitle: true,
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.qr_code_scanner), text: 'බාර්කෝඩ්'),
+              Tab(icon: Icon(Icons.search), text: 'Manual Add'),
+            ],
+          ),
         ),
-      ),
-      body: DefaultTabController(
-        length: 2,
-        child: Column(
+        body: Column(
           children: [
             Container(
               margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
