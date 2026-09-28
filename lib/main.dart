@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
@@ -61,14 +62,36 @@ class SupermarketApp extends StatelessWidget {
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
+
+  Future<Widget> _routeForUser(User user) async {
+    final admin = await FirebaseFirestore.instance.collection('admins').doc(user.uid).get();
+    if (admin.exists && admin.data()?['active'] != false) return const AdminPanel();
+
+    final customer = await FirebaseFirestore.instance.collection('customers').doc(user.uid).get();
+    if (!customer.exists || customer.data()?['active'] == false) {
+      await FirebaseAuth.instance.signOut();
+      return const LoginPage();
+    }
+    return const HomePage();
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-        if (snapshot.data == null) return const LoginPage();
-        return const HomePage();
+        final user = snapshot.data;
+        if (user == null) return const LoginPage();
+        return FutureBuilder<Widget>(
+          future: _routeForUser(user),
+          builder: (context, route) {
+            if (route.connectionState != ConnectionState.done || !route.hasData) {
+              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            }
+            return route.data!;
+          },
+        );
       },
     );
   }
@@ -212,6 +235,131 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class AdminPanel extends StatefulWidget {
+  const AdminPanel({super.key});
+  @override
+  State<AdminPanel> createState() => _AdminPanelState();
+}
+
+class _AdminPanelState extends State<AdminPanel> {
+  final _business = TextEditingController();
+  final _owner = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _creating = false;
+  bool _obscure = true;
+
+  Future<void> _createCustomer() async {
+    final business = _business.text.trim();
+    final owner = _owner.text.trim();
+    final email = _email.text.trim();
+    final password = _password.text;
+    if (business.isEmpty || owner.isEmpty || email.isEmpty || password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Business Name, Owner Name, Email සහ අවම අක්ෂර 6ක Password එකක් ඇතුළත් කරන්න.')));
+      return;
+    }
+    setState(() => _creating = true);
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'asia-south1').httpsCallable('createCustomer');
+      await callable.call({
+        'businessName': business,
+        'ownerName': owner,
+        'email': email,
+        'password': password,
+      });
+      _business.clear(); _owner.clear(); _email.clear(); _password.clear();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Customer account එක සාර්ථකව සාදා ඇත.')));
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Customer account error: ' + (e.message ?? e.code))));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ' + e.toString())));
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  Future<void> _setActive(String uid, bool active) async {
+    await FirebaseFirestore.instance.collection('customers').doc(uid).update({
+      'active': active,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  @override
+  void dispose() {
+    _business.dispose(); _owner.dispose(); _email.dispose(); _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('🔐 Admin Panel', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [IconButton(onPressed: () => FirebaseAuth.instance.signOut(), icon: const Icon(Icons.logout))],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF1B5E20), Color(0xFF43A047)]),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Customer Accounts', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold)),
+              SizedBox(height: 6),
+              Text('ගෙවන customers සඳහා login accounts මෙතැනින් සාදන්න.', style: TextStyle(color: Colors.white70)),
+            ]),
+          ),
+          const SizedBox(height: 18),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(children: [
+                const Align(alignment: Alignment.centerLeft, child: Text('➕ අලුත් Customer Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                const SizedBox(height: 14),
+                TextField(controller: _business, decoration: const InputDecoration(labelText: 'Business Name', prefixIcon: Icon(Icons.store), border: OutlineInputBorder())),
+                const SizedBox(height: 12),
+                TextField(controller: _owner, decoration: const InputDecoration(labelText: 'Owner Name', prefixIcon: Icon(Icons.person), border: OutlineInputBorder())),
+                const SizedBox(height: 12),
+                TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Customer Email', prefixIcon: Icon(Icons.email), border: OutlineInputBorder())),
+                const SizedBox(height: 12),
+                TextField(controller: _password, obscureText: _obscure, decoration: InputDecoration(labelText: 'Temporary Password', helperText: 'අවම අක්ෂර 6ක්', prefixIcon: const Icon(Icons.lock), border: const OutlineInputBorder(), suffixIcon: IconButton(onPressed: () => setState(() => _obscure = !_obscure), icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off)))),
+                const SizedBox(height: 14),
+                SizedBox(width: double.infinity, height: 50, child: FilledButton.icon(onPressed: _creating ? null : _createCustomer, icon: _creating ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.person_add), label: Text(_creating ? 'Creating...' : 'Customer Account සාදන්න'))),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text('👥 Customer List', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance.collection('customers').orderBy('createdAt', descending: true).snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) return Text('Customer list error: ' + snapshot.error.toString());
+              if (!snapshot.hasData) return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
+              if (snapshot.data!.docs.isEmpty) return const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('තව Customer accounts නැහැ.')));
+              return Column(children: snapshot.data!.docs.map((doc) {
+                final d = doc.data();
+                final active = d['active'] != false;
+                return Card(child: ListTile(
+                  leading: CircleAvatar(child: Icon(active ? Icons.store : Icons.block)),
+                  title: Text((d['businessName'] ?? 'Business').toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text((d['ownerName'] ?? '').toString() + '\n' + (d['email'] ?? '').toString()),
+                  isThreeLine: true,
+                  trailing: Switch(value: active, onChanged: (value) => _setActive(doc.id, value)),
+                ));
+              }).toList());
+            },
+          ),
+        ],
       ),
     );
   }
