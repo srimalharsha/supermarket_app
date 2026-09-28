@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'firebase_options.dart';
 import 'bill_receipt.dart';
+import 'purchase_page.dart';
 
 const List<String> supermarketCategories = [
   'සියලුම භාණ්ඩ',
@@ -175,6 +176,16 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            _MenuCard(
+              icon: Icons.shopping_cart_checkout,
+              title: 'භාණ්ඩ මිලදී ගැනීම්',
+              subtitle: 'Purchase / Stock වැඩි කරන්න',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PurchasePage()),
+              ),
             ),
             const SizedBox(height: 20),
             const Text(
