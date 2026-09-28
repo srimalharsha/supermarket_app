@@ -36,10 +36,60 @@ const List<String> supermarketCategories = [
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  runApp(const SupermarketApp());
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    runApp(const SupermarketApp());
+  } catch (e) {
+    runApp(BootErrorApp(error: e));
+  }
+}
+
+class BootErrorApp extends StatelessWidget {
+  final Object error;
+  const BootErrorApp({super.key, required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFFF5F7F5),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 56),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'App එක ආරම්භ කිරීමට ගැටලුවක් ඇත',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    SelectableText(error.toString(), textAlign: TextAlign.center),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'මෙම error එක පෙන්වුවහොත් screenshot එකක් එවන්න. '
+                      'ඒ අනුව නිවැරදි Firebase/Web ගැටලුව fix කරන්න පුළුවන්.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class SupermarketApp extends StatelessWidget {
