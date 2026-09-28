@@ -1546,7 +1546,7 @@ class _BillHistoryPageState extends State<BillHistoryPage> {
                             ),
                         ],
                       ),
-                    ); );
+                    );
                   },
                 );
               },
