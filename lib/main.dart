@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'firebase_options.dart';
+import 'bill_receipt.dart';
 
 const List<String> supermarketCategories = [
   'සියලුම භාණ්ඩ',
@@ -798,7 +799,6 @@ class _AddProductPageState extends State<AddProductPage> {
   final _stockController = TextEditingController();
   final _lowStockController = TextEditingController(text: '5');
   final _expiryDateController = TextEditingController();
-
   bool _saving = false;
 
   bool _isAllowedCategory(String value) {
@@ -1597,8 +1597,7 @@ class _NewBillPageState extends State<NewBillPage> {
     final newQty = item.quantity + change;
     if (newQty <= 0) {
       setState(() => _items.removeAt(index));
-      return;
-    }
+      return;    }
     if (newQty > item.stock) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(item.name + ' සඳහා තිබෙන තොගය ' + item.stock.toString() + ' යි.')),
@@ -1685,33 +1684,27 @@ class _NewBillPageState extends State<NewBillPage> {
       });
 
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 30),
-              SizedBox(width: 8),
-              Expanded(child: Text('බිල්පත සාර්ථකව සුරැකුණා')),
-            ],
+      if (!mounted) return;
+
+      final receiptItems = _items.map((item) => <String, dynamic>{
+        'name': item.name,
+        'barcode': item.barcode,
+        'price': item.price,
+        'quantity': item.quantity,
+        'total': item.total,
+      }).toList();
+
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BillReceiptPage(
+            billNumber: billRef.id,
+            dateKey: _todayKey,
+            items: receiptItems,
+            total: savedTotal,
           ),
-          content: Text(
-            'භාණ්ඩ ගණන: ' + savedItemCount.toString() + '\n'
-            'මුළු මුදල: Rs. ' + savedTotal.toStringAsFixed(2) + '\n\n'
-            'තොගයෙන් අඩු කර අද ආදායමටත් එකතු කළා.',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('හරි'),
-            ),
-          ],
         ),
       );
-      if (!mounted) return;
-      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
