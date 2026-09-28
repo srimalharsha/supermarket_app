@@ -1199,20 +1199,113 @@ class _AddProductPageState extends State<AddProductPage> {
     return null;
   }
 
+  Widget _photoTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text(
+          '📷 භාණ්ඩයේ Photo එක',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'භාණ්ඩය හඳුනාගැනීමට photo එකක් capture කරලා save කරන්න.',
+          style: TextStyle(color: Colors.grey),
+        ),
+        const SizedBox(height: 18),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.green.shade100),
+          ),
+          child: Column(
+            children: [
+              if (_imageUrl.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    _imageUrl,
+                    height: 260,
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox(
+                      height: 260,
+                      child: Center(child: Icon(Icons.broken_image, size: 50)),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  height: 260,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.photo_camera_outlined, size: 80, color: Colors.green),
+                  ),
+                ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: FilledButton.icon(
+                  onPressed: _saving || _uploadingImage ? null : _captureProductImage,
+                  icon: _uploadingImage
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.camera_alt),
+                  label: Text(
+                    _uploadingImage
+                        ? 'Photo එක upload වෙමින්...'
+                        : (_imageUrl.isEmpty ? '📷 Photo එක Capture කරන්න' : '📷 Photo එක නැවත Capture කරන්න'),
+                  ),
+                ),
+              ),
+              if (_imageUrl.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Photo එක සාර්ථකව එකතු කරලා තියෙනවා ✓',
+                  style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'අලුත් භාණ්ඩ',
-          style: TextStyle(fontWeight: FontWeight.bold),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'අලුත් භාණ්ඩ',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.edit_note), text: 'භාණ්ඩ විස්තර'),
+              Tab(icon: Icon(Icons.camera_alt), text: '📷 Photo'),
+            ],
+          ),
         ),
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
+        body: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+
             const Text(
               'භාණ්ඩ විස්තර',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -1306,44 +1399,6 @@ class _AddProductPageState extends State<AddProductPage> {
               keyboardType: TextInputType.number,
               validator: _integer,
             ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.green.shade100),
-              ),
-              child: Column(
-                children: [
-                  if (_imageUrl.isNotEmpty)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        _imageUrl,
-                        height: 170,
-                        width: double.infinity,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                      ),
-                    ),
-                  if (_imageUrl.isNotEmpty) const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: OutlinedButton.icon(
-                      onPressed: _saving || _uploadingImage ? null : _captureProductImage,
-                      icon: _uploadingImage
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.camera_alt),
-                      label: Text(_uploadingImage
-                          ? 'Photo එක upload වෙමින්...'
-                          : (_imageUrl.isEmpty ? '📷 භාණ්ඩයේ Photo එකක් ගන්න' : '📷 Photo එක නැවත ගන්න')),
-                    ),
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 14),
             SizedBox(
               height: 52,
@@ -1360,9 +1415,21 @@ class _AddProductPageState extends State<AddProductPage> {
               ),
             ),
             const SizedBox(height: 20),
-          ],
+
+                      ],
+                    ),
+                    _photoTab(),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+,
     );
   }
 }
