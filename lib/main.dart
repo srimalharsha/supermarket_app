@@ -76,49 +76,147 @@ class AuthGate extends StatelessWidget {
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
-  @override State<LoginPage> createState() => _LoginPageState();
+  @override
+  State<LoginPage> createState() => _LoginPageState();
 }
 class _LoginPageState extends State<LoginPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
   bool _obscure = true;
+
   Future<void> _signIn() async {
-    final email = _email.text.trim(); final password = _password.text;
-    if (email.isEmpty || password.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email සහ Password දෙකම ඇතුළත් කරන්න.'))); return; }
+    final email = _email.text.trim();
+    final password = _password.text;
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email සහ Password දෙකම ඇතුළත් කරන්න.')),
+      );
+      return;
+    }
     setState(() => _loading = true);
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
     } on FirebaseAuthException catch (e) {
       var message = 'Login අසාර්ථකයි.';
-      if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'wrong-password') message = 'Email හෝ Password වැරදියි.';
-      else if (e.code == 'user-disabled') message = 'මෙම account එක Admin විසින් අක්‍රීය කර ඇත.';
-      else if (e.code == 'invalid-email') message = 'Email එක නිවැරදිව ඇතුළත් කරන්න.';
+      if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'wrong-password') {
+        message = 'Email හෝ Password වැරදියි.';
+      } else if (e.code == 'user-disabled') {
+        message = 'මෙම account එක Admin විසින් අක්‍රීය කර ඇත.';
+      } else if (e.code == 'invalid-email') {
+        message = 'Email එක නිවැරදිව ඇතුළත් කරන්න.';
+      }
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login error: $e'))); }
-    finally { if (mounted) setState(() => _loading = false); }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login error: ' + e.toString())));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
+
   Future<void> _forgotPassword() async {
     final email = _email.text.trim();
-    if (email.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('මුලින් Email එක ඇතුළත් කරන්න.'))); return; }
-    try { await FirebaseAuth.instance.sendPasswordResetEmail(email: email); if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password reset email එක යැව්වා.'))); }
-    on FirebaseAuthException catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Reset error: ' + (e.message ?? e.code)))); }
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('මුලින් Email එක ඇතුළත් කරන්න.')));
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password reset email එක යැව්වා.')));
+    } on FirebaseAuthException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Reset error: ' + (e.message ?? e.code))));
+    }
   }
-  @override void dispose() { _email.dispose(); _password.dispose(); super.dispose(); }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: SafeArea(child: Center(child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 430), child: Card(elevation: 5, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), child: Padding(padding: const EdgeInsets.all(28), child: Column(children: [
-      Container(width: 82, height: 82, decoration: BoxDecoration(color: Colors.green.shade50, shape: BoxShape.circle), child: Icon(Icons.storefront, size: 46, color: Colors.green.shade700)),
-      const SizedBox(height: 18), const Text('🏪 සුපිරි වෙළඳසැල', style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 6), const Text('Customer Login', style: TextStyle(color: Colors.grey, fontSize: 15)), const SizedBox(height: 28),
-      TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder())),
-      const SizedBox(height: 14), TextField(controller: _password, obscureText: _obscure, onSubmitted: (_) => _signIn(), decoration: InputDecoration(labelText: 'Password', prefixIcon: const Icon(Icons.lock_outline), border: const OutlineInputBorder(), suffixIcon: IconButton(onPressed: () => setState(() => _obscure = !_obscure), icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off)))),
-      const SizedBox(height: 20), SizedBox(width: double.infinity, height: 52, child: FilledButton.icon(onPressed: _loading ? null : _signIn, icon: _loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.login), label: Text(_loading ? 'Signing in...' : 'Sign In'))),
-      const SizedBox(height: 8), TextButton(onPressed: _loading ? null : _forgotPassword, child: const Text('Password අමතකද?')), const SizedBox(height: 12),
-      const Text('Registration නැත. Account ලබාගන්නේ App Admin හරහා පමණි.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
-    ])))))));
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: Card(
+                elevation: 5,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                child: Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 82,
+                        height: 82,
+                        decoration: BoxDecoration(color: Colors.green.shade50, shape: BoxShape.circle),
+                        child: Icon(Icons.storefront, size: 46, color: Colors.green.shade700),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text('🏪 සුපිරි වෙළඳසැල', style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      const Text('Customer Login', style: TextStyle(color: Colors.grey, fontSize: 15)),
+                      const SizedBox(height: 28),
+                      TextField(
+                        controller: _email,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder()),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: _password,
+                        obscureText: _obscure,
+                        onSubmitted: (_) => _signIn(),
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            onPressed: () => setState(() => _obscure = !_obscure),
+                            icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: FilledButton.icon(
+                          onPressed: _loading ? null : _signIn,
+                          icon: _loading
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.login),
+                          label: Text(_loading ? 'Signing in...' : 'Sign In'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: _loading ? null : _forgotPassword,
+                        child: const Text('Password අමතකද?'),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Registration නැත. Account ලබාගන්නේ App Admin හරහා පමණි.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
