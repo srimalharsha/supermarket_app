@@ -362,6 +362,7 @@ class _StockPageState extends State<StockPage> {
     final sellController = TextEditingController(text: (data['sellingPrice'] ?? '').toString());
     final stockController = TextEditingController(text: (data['stockQuantity'] ?? 0).toString());
     final limitController = TextEditingController(text: (data['lowStockLimit'] ?? 5).toString());
+    final expiryController = TextEditingController(text: (data['expiryDate'] ?? '').toString());
     String category = _isAllowedCategory((data['category'] ?? '').toString())
         ? (data['category'] ?? '').toString()
         : 'වෙනත්';
@@ -414,6 +415,30 @@ class _StockPageState extends State<StockPage> {
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: 'අඩු තොග සීමාව'),
                 ),
+                TextField(
+                  controller: expiryController,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'කල් ඉකුත් වන දිනය',
+                    hintText: 'DD/MM/YYYY',
+                    suffixIcon: Icon(Icons.calendar_month),
+                  ),
+                  onTap: () async {
+                    final current = _parseExpiryDate(expiryController.text);
+                    final picked = await showDatePicker(
+                      context: dialogContext,
+                      initialDate: current ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) {
+                      expiryController.text = picked.day.toString().padLeft(2, '0') + '/' +
+                          picked.month.toString().padLeft(2, '0') + '/' +
+                          picked.year.toString();
+                      setDialogState(() {});
+                    }
+                  },
+                ),
               ],
             ),
           ),
@@ -448,6 +473,7 @@ class _StockPageState extends State<StockPage> {
                     'sellingPrice': sell,
                     'stockQuantity': stock,
                     'lowStockLimit': limit,
+                    'expiryDate': expiryController.text.trim(),
                   });
                   if (dialogContext.mounted) Navigator.pop(dialogContext, true);
                 } catch (_) {
@@ -471,6 +497,7 @@ class _StockPageState extends State<StockPage> {
     sellController.dispose();
     stockController.dispose();
     limitController.dispose();
+    expiryController.dispose();
 
     if (saved == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
