@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -838,6 +840,40 @@ class _AddProductPageState extends State<AddProductPage> {
   final _lowStockController = TextEditingController(text: '5');
   final _expiryDateController = TextEditingController();
   bool _saving = false;
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _uploadingImage = false;
+
+  Future<void> _captureProductImage() async {
+    try {
+      setState(() => _uploadingImage = true);
+      final file = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 82,
+        maxWidth: 1200,
+      );
+      if (file == null) return;
+
+      final bytes = await file.readAsBytes();
+      final fileName = 'products/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = FirebaseStorage.instance.ref().child(fileName);
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+      final url = await ref.getDownloadURL();
+
+      if (!mounted) return;
+      setState(() => _imageUrl = url);
+      _showMessage('භාණ්ඩයේ photo එක සාර්ථකව එකතු කළා.');
+    } catch (e) {
+      if (mounted) {
+        _showMessage(
+          'Photo එක එකතු කිරීමට නොහැකි වුණා: ${e.toString().replaceFirst('Exception: ', '')}',
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
+  }
+
 
   bool _isAllowedCategory(String value) {
     return supermarketCategories.skip(1).contains(value);
@@ -1271,19 +1307,44 @@ class _AddProductPageState extends State<AddProductPage> {
               validator: _integer,
             ),
             const SizedBox(height: 6),
-            if (_imageUrl.isNotEmpty) ...[
-              ClipRRect(
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
-                child: Image.network(
-                  _imageUrl,
-                  height: 150,
-                  width: double.infinity,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
+                border: Border.all(color: Colors.green.shade100),
               ),
-              const SizedBox(height: 12),
-            ],
+              child: Column(
+                children: [
+                  if (_imageUrl.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        _imageUrl,
+                        height: 170,
+                        width: double.infinity,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  if (_imageUrl.isNotEmpty) const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: _saving || _uploadingImage ? null : _captureProductImage,
+                      icon: _uploadingImage
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.camera_alt),
+                      label: Text(_uploadingImage
+                          ? 'Photo එක upload වෙමින්...'
+                          : (_imageUrl.isEmpty ? '📷 භාණ්ඩයේ Photo එකක් ගන්න' : '📷 Photo එක නැවත ගන්න')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
             SizedBox(
               height: 52,
               child: FilledButton.icon(
