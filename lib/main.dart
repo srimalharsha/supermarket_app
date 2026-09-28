@@ -1281,7 +1281,7 @@ class _AddProductPageState extends State<AddProductPage> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text(
@@ -1733,6 +1733,7 @@ class _NewBillPageState extends State<NewBillPage> {
   bool _saving = false;
   String _searchQuery = '';
   String _manualCategory = 'සියලුම භාණ්ඩ';
+  String _quickSearch = '';
   String _quickSearch = '';
 
   double get _total => _items.fold(0, (sum, item) => sum + item.total);
@@ -2241,6 +2242,118 @@ class _NewBillPageState extends State<NewBillPage> {
     );
   }
 
+
+  Widget _quickSaleTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+          child: TextField(
+            onChanged: (value) => setState(() => _quickSearch = value.trim().toLowerCase()),
+            decoration: InputDecoration(
+              hintText: '⭐ Barcode නැති භාණ්ඩ සොයන්න...',
+              prefixIcon: const Icon(Icons.star, color: Colors.orange),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(14, 2, 14, 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text('⭐ ඉක්මන් විකිණීම — Barcode නැති භාණ්ඩ',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance.collection('products').snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) return const Center(child: Text('භාණ්ඩ ලැයිස්තුව ලබාගැනීමේදී දෝෂයක් ඇතිවුණා.'));
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              final docs = snapshot.data!.docs.where((doc) {
+                final data = doc.data();
+                final name = (data['name'] ?? '').toString().toLowerCase();
+                final barcode = (data['barcode'] ?? '').toString().trim();
+                final stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
+                return barcode.isEmpty && stock > 0 &&
+                    (_quickSearch.isEmpty || name.contains(_quickSearch));
+              }).toList();
+              if (docs.isEmpty) {
+                return const Center(child: Text(
+                  'Barcode නැති භාණ්ඩ හමු වුණේ නැහැ.\nAdd Product එකේ Barcode හිස්ව තබා save කරන්න.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ));
+              }
+              return GridView.builder(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.88),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final doc = docs[index];
+                  final data = doc.data();
+                  final name = (data['name'] ?? 'නම නැත').toString();
+                  final price = (data['sellingPrice'] as num?)?.toDouble() ?? 0;
+                  final stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
+                  final imageUrl = (data['imageUrl'] ?? '').toString();
+                  return Card(
+                    margin: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: _saving ? null : () => _addProduct(doc),
+                      child: Padding(
+                        padding: const EdgeInsets.all(9),
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: imageUrl.isEmpty
+                                    ? Container(width: double.infinity, color: Colors.green.shade50,
+                                        child: Icon(Icons.shopping_bag, size: 48, color: Colors.green.shade700))
+                                    : Image.network(imageUrl, width: double.infinity, fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(width: double.infinity,
+                                          color: Colors.green.shade50,
+                                          child: Icon(Icons.shopping_bag, size: 48, color: Colors.green.shade700))),
+                              ),
+                            ),
+                            const SizedBox(height: 7),
+                            Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text('Rs. ' + price.toStringAsFixed(2),
+                                style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold)),
+                            Text('තොගය ' + stock.toString(),
+                                style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                            const SizedBox(height: 3),
+                            SizedBox(width: double.infinity, height: 34,
+                              child: FilledButton.icon(
+                                onPressed: _saving ? null : () => _addProduct(doc),
+                                icon: const Icon(Icons.add, size: 18),
+                                label: const Text('Bill එකට'),
+                              )),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _manualTab() {
     return Column(
       children: [
@@ -2456,6 +2569,7 @@ class _NewBillPageState extends State<NewBillPage> {
                 children: [
                   _barcodeTab(),
                   _manualTab(),
+                  _quickSaleTab(),
                   _quickSaleTab(),
                 ],
               ),
