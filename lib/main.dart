@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
@@ -469,22 +468,85 @@ class _AdminPanelState extends State<AdminPanel> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Business Name, Owner Name, Email සහ අවම අක්ෂර 6ක Password එකක් ඇතුළත් කරන්න.')));
       return;
     }
+
     setState(() => _creating = true);
+    FirebaseApp? customerApp;
+
     try {
-      final callable = FirebaseFunctions.instanceFor(region: 'asia-south1').httpsCallable('createCustomer');
-      await callable.call({
+      // Create the customer in a separate Firebase app instance so the
+      // currently logged-in Admin session is not replaced by the customer.
+      const appName = 'customerCreationApp';
+      try {
+        await Firebase.app(appName).delete();
+      } catch (_) {}
+
+      customerApp = await Firebase.initializeApp(
+        name: appName,
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+
+      final customerAuth = FirebaseAuth.instanceFor(app: customerApp);
+      final credential = await customerAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final customerUid = credential.user!.uid;
+
+      // The primary Firebase app is still authenticated as Admin.
+      await FirebaseFirestore.instance.collection('customers').doc(customerUid).set({
         'businessName': business,
         'ownerName': owner,
         'email': email,
-        'password': password,
+        'active': true,
+        'role': 'customer',
+        'createdAt': FieldValue.serverTimestamp(),
       });
-      _business.clear(); _owner.clear(); _email.clear(); _password.clear();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Customer account එක සාර්ථකව සාදා ඇත.')));
-    } on FirebaseFunctionsException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Customer account error: ' + (e.message ?? e.code))));
+
+      _business.clear();
+      _owner.clear();
+      _email.clear();
+      _password.clear();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Customer account එක සාර්ථකව සාදා ඇත.')),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      var message = 'Customer account එක සාදන්න බැරි වුණා.';
+      if (e.code == 'email-already-in-use') {
+        message = 'මෙම Email එක දැනටමත් භාවිතා කර ඇත.';
+      } else if (e.code == 'invalid-email') {
+        message = 'Customer Email එක නිවැරදිව ඇතුළත් කරන්න.';
+      } else if (e.code == 'weak-password') {
+        message = 'Temporary Password එක තවත් ශක්තිමත් කරන්න.';
+      } else if (e.code == 'operation-not-allowed') {
+        message = 'Firebase Authentication හි Email/Password Login එක enable කරලා නැහැ.';
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 8),
+            content: Text('$message\nCode: ${e.code}\n${e.message ?? ''}'),
+          ),
+        );
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ' + e.toString())));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 10),
+            content: Text('Customer account එක සාදන්න බැරි වුණා.\n$e'),
+          ),
+        );
+      }
     } finally {
+      if (customerApp != null) {
+        try {
+          await customerApp.delete();
+        } catch (_) {}
+      }
       if (mounted) setState(() => _creating = false);
     }
   }
