@@ -204,9 +204,27 @@ class _AdminSetupPageState extends State<AdminSetupPage> {
       if (e.code == 'email-already-in-use') message = 'මෙම Email එක දැනටමත් භාවිතා කර ඇත.';
       if (e.code == 'invalid-email') message = 'Email එක නිවැරදිව ඇතුළත් කරන්න.';
       if (e.code == 'weak-password') message = 'Password එක තවත් ශක්තිමත් කරන්න.';
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      if (e.code == 'operation-not-allowed') {
+        message = 'Firebase Authentication හි Email/Password Login එක enable කරලා නැහැ.';
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 8),
+            content: Text('$message\nCode: ${e.code}\n${e.message ?? ''}'),
+          ),
+        );
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) {
+        final raw = e.toString();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 10),
+            content: Text('Admin account එක සාදන්න බැරි වුණා.\n$raw'),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
