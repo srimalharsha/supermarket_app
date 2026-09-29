@@ -1,6 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+
+Query<Map<String, dynamic>> _myProductsQuery() {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null || uid.isEmpty) {
+    return FirebaseFirestore.instance.collection('products').where('ownerUid', isEqualTo: '__no_user__');
+  }
+  return FirebaseFirestore.instance.collection('products').where('ownerUid', isEqualTo: uid);
+}
 
 class PurchasePage extends StatefulWidget {
   const PurchasePage({super.key});
@@ -20,8 +29,7 @@ class _PurchasePageState extends State<PurchasePage> {
     );
     if (!mounted || code == null || code.isEmpty) return;
 
-    final snap = await FirebaseFirestore.instance
-        .collection('products')
+    final snap = await _myProductsQuery()
         .where('barcode', isEqualTo: code)
         .limit(1)
         .get();
@@ -85,7 +93,7 @@ class _PurchasePageState extends State<PurchasePage> {
         ),
       ]),
     ),
-    Expanded(child:StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(stream:FirebaseFirestore.instance.collection('products').snapshots(),builder:(c,s){if(!s.hasData)return const Center(child:CircularProgressIndicator()); final docs=s.data!.docs.where((doc){final d=doc.data();final n=(d['name']??'').toString().toLowerCase();final b=(d['barcode']??'').toString().toLowerCase();return query.isEmpty||n.contains(query)||b.contains(query);}).toList(); if(docs.isEmpty)return const Center(child:Text('භාණ්ඩ හමු වුණේ නැහැ.')); return ListView.builder(padding:const EdgeInsets.all(12),itemCount:docs.length,itemBuilder:(c,i){final d=docs[i].data();final p=(d['buyPrice'] as num?)?.toDouble()??0;final st=(d['stockQuantity'] as num?)?.toInt()??0;return Card(child:ListTile(title:Text((d['name']??'නම නැත').toString()),subtitle:Text('Buy: Rs. '+p.toStringAsFixed(2)+' • Current stock: '+st.toString()),trailing:IconButton(icon:const Icon(Icons.add_circle,color:Colors.green,size:32),onPressed:()=>add(docs[i]))));});})),
+    Expanded(child:StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(stream:_myProductsQuery().snapshots(),builder:(c,s){if(!s.hasData)return const Center(child:CircularProgressIndicator()); final docs=s.data!.docs.where((doc){final d=doc.data();final n=(d['name']??'').toString().toLowerCase();final b=(d['barcode']??'').toString().toLowerCase();return query.isEmpty||n.contains(query)||b.contains(query);}).toList(); if(docs.isEmpty)return const Center(child:Text('භාණ්ඩ හමු වුණේ නැහැ.')); return ListView.builder(padding:const EdgeInsets.all(12),itemCount:docs.length,itemBuilder:(c,i){final d=docs[i].data();final p=(d['buyPrice'] as num?)?.toDouble()??0;final st=(d['stockQuantity'] as num?)?.toInt()??0;return Card(child:ListTile(title:Text((d['name']??'නම නැත').toString()),subtitle:Text('Buy: Rs. '+p.toStringAsFixed(2)+' • Current stock: '+st.toString()),trailing:IconButton(icon:const Icon(Icons.add_circle,color:Colors.green,size:32),onPressed:()=>add(docs[i]))));});})),
     if(items.isNotEmpty)Container(constraints:const BoxConstraints(maxHeight:230),padding:const EdgeInsets.all(8),color:Colors.white,child:ListView.builder(itemCount:items.length,itemBuilder:(c,i){final x=items[i];return ListTile(title:Text(x.name),subtitle:Text('Rs. '+x.price.toStringAsFixed(2)+' × '+x.qty.toString()+' = Rs. '+x.total.toStringAsFixed(2)),trailing:Row(mainAxisSize:MainAxisSize.min,children:[IconButton(onPressed:()=>setState(()=>x.qty>1?x.qty--:null),icon:const Icon(Icons.remove_circle_outline)),Text(x.qty.toString()),IconButton(onPressed:()=>setState(()=>x.qty++),icon:const Icon(Icons.add_circle_outline)),IconButton(onPressed:()=>setState(()=>items.removeAt(i)),icon:const Icon(Icons.delete_outline,color:Colors.red))]));})),
     Container(padding:const EdgeInsets.all(14),color:Colors.white,child:Row(children:[Expanded(child:Text('මුළු Purchase: Rs. '+total.toStringAsFixed(2),style:const TextStyle(fontWeight:FontWeight.bold,fontSize:16))),FilledButton.icon(onPressed:saving?null:save,icon:const Icon(Icons.save),label:Text(saving?'සුරැකෙමින්...':'Purchase Save'))]))
   ])); }
