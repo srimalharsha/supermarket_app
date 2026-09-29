@@ -2598,8 +2598,16 @@ class _BillHistoryPageState extends State<BillHistoryPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
+                // Double-check ownership on the client as well as the Firestore
+                // query. A customer must never see another customer's bill.
+                final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
                 final docs = snapshot.data!.docs.where((doc) {
-                  return (doc.data()['dateKey'] ?? '').toString() == key;
+                  final data = doc.data();
+                  final ownerUid = (data['ownerUid'] ?? '').toString();
+                  final dateKey = (data['dateKey'] ?? '').toString();
+                  return currentUid.isNotEmpty &&
+                      ownerUid == currentUid &&
+                      dateKey == key;
                 }).toList();
                 docs.sort((a, b) {
                   final at = a.data()['createdAt'] as Timestamp?;
