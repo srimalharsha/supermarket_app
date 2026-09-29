@@ -35,6 +35,19 @@ const List<String> supermarketCategories = [
   'වෙනත්',
 ];
 
+
+Query<Map<String, dynamic>> _myProductsQuery() {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null || uid.isEmpty) {
+    return FirebaseFirestore.instance.collection('products').where('ownerUid', isEqualTo: '__no_user__');
+  }
+  return FirebaseFirestore.instance.collection('products').where('ownerUid', isEqualTo: uid);
+}
+
+CollectionReference<Map<String, dynamic>> _allProductsRef() {
+  return FirebaseFirestore.instance.collection('products');
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -1237,10 +1250,7 @@ class _StockPageState extends State<StockPage> {
         ),
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance
-            .collection('products')
-            .orderBy('name')
-            .snapshots(),
+        stream: _myProductsQuery().snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return const Center(
@@ -1251,7 +1261,9 @@ class _StockPageState extends State<StockPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final docs = snapshot.data?.docs ?? [];
+          final docs = [...(snapshot.data?.docs ?? [])]
+            ..sort((a, b) => (a.data()['name'] ?? '').toString().toLowerCase()
+                .compareTo((b.data()['name'] ?? '').toString().toLowerCase()));
           if (docs.isEmpty) {
             return const Center(
               child: Text(
@@ -1703,8 +1715,7 @@ class _AddProductPageState extends State<AddProductPage> {
     // once a barcode has been saved before, its buying price, selling price
     // and expiry date will automatically appear on the next scan.
     try {
-      final result = await FirebaseFirestore.instance
-          .collection('products')
+      final result = await _myProductsQuery()
           .where('barcode', isEqualTo: scannedBarcode)
           .limit(1)
           .get();
@@ -2549,8 +2560,7 @@ class _NewBillPageState extends State<NewBillPage> {
     );
     if (!mounted || code == null || code.trim().isEmpty) return;
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection('products')
+    final snapshot = await _myProductsQuery()
         .where('barcode', isEqualTo: code.trim())
         .limit(1)
         .get();
@@ -2970,7 +2980,7 @@ class _NewBillPageState extends State<NewBillPage> {
         ),
         Expanded(
           child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance.collection('products').snapshots(),
+            stream: _myProductsQuery().snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) return const Center(child: Text('භාණ්ඩ ලැයිස්තුව ලබාගැනීමේදී දෝෂයක් ඇතිවුණා.'));
               if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
