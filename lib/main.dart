@@ -722,10 +722,10 @@ class HomePage extends StatelessWidget {
     await FirebaseAuth.instance.signOut();
   }
 
-  Future<void> _openWhatsApp() async {
+  Future<void> _openWhatsApp(BuildContext context) async {
     final uri = Uri.parse('https://wa.me/94789576303?text=Hello%20SriHarsha%20Digital');
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened && mounted) {
+    if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('WhatsApp විවෘත කරන්න බැරි වුණා.')),
       );
@@ -973,7 +973,7 @@ class HomePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   InkWell(
-                    onTap: _openWhatsApp,
+                    onTap: () => _openWhatsApp(context),
                     borderRadius: BorderRadius.circular(8),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
