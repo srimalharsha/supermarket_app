@@ -1414,6 +1414,7 @@ class AddProductPage extends StatefulWidget {
 
 class _AddProductPageState extends State<AddProductPage> {
   String _imageUrl = '';
+  String _imageData = '';
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
@@ -1430,79 +1431,40 @@ class _AddProductPageState extends State<AddProductPage> {
 
   Future<void> _captureProductImage() async {
     if (_uploadingImage) return;
-
     try {
       if (mounted) setState(() => _uploadingImage = true);
-
       final file = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 60,
-        maxWidth: 900,
-        maxHeight: 900,
+        imageQuality: 45,
+        maxWidth: 500,
+        maxHeight: 500,
       );
-
       if (file == null) {
         if (mounted) setState(() => _uploadingImage = false);
         return;
       }
-
       final bytes = await file.readAsBytes();
       if (bytes.isEmpty) throw Exception('Photo file එක හිස්.');
-      if (bytes.length > 5 * 1024 * 1024) {
-        throw Exception('Photo එක 5MB ට වඩා වැඩියි. නැවත Photo එකක් ගන්න.');
+      if (bytes.length > 700 * 1024) {
+        throw Exception('Photo එක තව පොඩි කරලා නැවත Capture කරන්න.');
       }
-
-      final fileName =
-          'products/product_' + DateTime.now().millisecondsSinceEpoch.toString() + '.jpg';
-      final ref = FirebaseStorage.instance.ref().child(fileName);
-
-      // putData works for both Android and Web.
-      final uploadTask = ref.putData(
-        bytes,
-        SettableMetadata(
-          contentType: 'image/jpeg',
-          cacheControl: 'public,max-age=31536000',
-        ),
-      );
-
-      await uploadTask.timeout(
-        const Duration(seconds: 60),
-        onTimeout: () async {
-          await uploadTask.cancel();
-          throw Exception(
-            'Photo upload එක timeout වුණා. Internet connection එක සහ Firebase Storage පරීක්ෂා කරන්න.',
-          );
-        },
-      );
-
-      final url = await ref.getDownloadURL().timeout(
-        const Duration(seconds: 20),
-        onTimeout: () => throw Exception(
-          'Photo upload වුණා, නමුත් image URL එක ලබාගන්න බැරි වුණා.',
-        ),
-      );
-
+      final encoded = base64Encode(bytes);
       if (!mounted) return;
-      setState(() => _imageUrl = url);
-      _showMessage('✅ භාණ්ඩයේ Photo එක upload කළා.');
-    } on FirebaseException catch (e) {
-      if (mounted) {
-        _showMessage(
-          'Photo upload error: ' + e.code +
-              (e.message == null ? '' : '\n' + e.message!),
-          isError: true,
-        );
-      }
+      setState(() {
+        _imageData = encoded;
+        _imageUrl = '';
+        _uploadingImage = false;
+      });
+      _showMessage('✅ Photo එක සාර්ථකව එකතු කළා.');
     } catch (e) {
       if (mounted) {
+        setState(() => _uploadingImage = false);
         _showMessage(
-          'Photo upload කිරීමට නොහැකි වුණා: ' +
+          'Photo එක එකතු කිරීමට නොහැකි වුණා: ' +
               e.toString().replaceFirst('Exception: ', ''),
           isError: true,
         );
       }
-    } finally {
-      if (mounted) setState(() => _uploadingImage = false);
     }
   }
 
@@ -1599,6 +1561,7 @@ class _AddProductPageState extends State<AddProductPage> {
 
         setState(() {
           _imageUrl = (data['imageUrl'] ?? '').toString();
+          _imageData = (data['imageData'] ?? '').toString();
           _nameController.text = (data['name'] ?? '').toString();
 
           final savedCategory = (data['category'] ?? '').toString();
@@ -1742,6 +1705,7 @@ class _AddProductPageState extends State<AddProductPage> {
       final data = <String, dynamic>{
         'name': _nameController.text.trim(),
         'imageUrl': _imageUrl.trim(),
+        'imageData': _imageData,
         'barcode': _barcodeController.text.trim(),
         'category': _categoryController.text.trim(),
         'buyPrice': buyPrice,
@@ -1769,6 +1733,7 @@ class _AddProductPageState extends State<AddProductPage> {
       _nameController.clear();
       _barcodeController.clear();
       _imageUrl = '';
+      _imageData = '';
       _categoryController.clear();
       _buyPriceController.clear();
       _sellingPriceController.clear();
@@ -1885,7 +1850,21 @@ class _AddProductPageState extends State<AddProductPage> {
           ),
           child: Column(
             children: [
-              if (_imageUrl.isNotEmpty)
+              if (_imageData.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    base64Decode(_imageData),
+                    height: 260,
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox(
+                      height: 260,
+                      child: Center(child: Icon(Icons.broken_image, size: 50)),
+                    ),
+                  ),
+                )
+              else if (_imageUrl.isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Image.network(
@@ -1927,7 +1906,7 @@ class _AddProductPageState extends State<AddProductPage> {
                   ),
                 ),
               ),
-              if (_imageUrl.isNotEmpty) ...[
+              if (_imageData.isNotEmpty || _imageUrl.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 const Text(
                   'Photo එක සාර්ථකව එකතු කරලා තියෙනවා ✓',
