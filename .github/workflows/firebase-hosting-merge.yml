@@ -21,6 +21,18 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Fix Admin notification state before build
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/main.dart')
+          s = p.read_text()
+          marker = 'class _AdminPanelState extends State<AdminPanel> {\\n'
+          if marker in s and 'class _AdminPanelState extends State<AdminPanel> {\\n  int _adminTab = 0;' not in s:
+              s = s.replace(marker, marker + '  int _adminTab = 0;\\n', 1)
+          p.write_text(s)
+          PY
+
       - name: Build Web
         run: flutter build web
 
