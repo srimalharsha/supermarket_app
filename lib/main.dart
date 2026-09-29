@@ -472,7 +472,6 @@ class _AdminPanelState extends State<AdminPanel> {
   final _password = TextEditingController();
   bool _creating = false;
   bool _obscure = true;
-  int _adminTab = 0;
 
   Future<void> _createCustomer() async {
     final business = _business.text.trim();
@@ -777,105 +776,159 @@ class _AdminPanelState extends State<AdminPanel> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               children: [
-                Expanded(child: FilledButton.icon(onPressed: () => setState(() => _adminTab = 0), icon: const Icon(Icons.people_alt_outlined), label: const Text('Customers'))),
+                Expanded(child: FilledButton.icon(
+                  onPressed: () => setState(() => _adminTab = 0),
+                  icon: const Icon(Icons.people),
+                  label: const Text('Customers'),
+                )),
                 const SizedBox(width: 10),
-                Expanded(child: OutlinedButton.icon(onPressed: () => setState(() => _adminTab = 1), icon: const Icon(Icons.notifications_active_outlined), label: const Text('දැනුම්දීම්'))),
+                Expanded(child: OutlinedButton.icon(
+                  onPressed: () => setState(() => _adminTab = 1),
+                  icon: const Icon(Icons.notifications_active),
+                  label: const Text('🔔 දැනුම්දීම්'),
+                )),
               ],
             ),
           ),
-          Expanded(child: IndexedStack(index: _adminTab, children: [ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF1B5E20), Color(0xFF43A047)]),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Customer Accounts', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold)),
-              SizedBox(height: 6),
-              Text('ගෙවන customers සඳහා login accounts මෙතැනින් සාදන්න.', style: TextStyle(color: Colors.white70)),
-            ]),
-          ),
-          const SizedBox(height: 18),
-          const SizedBox(height: 18),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(children: [
-                const Align(alignment: Alignment.centerLeft, child: Text('➕ අලුත් Customer Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                const SizedBox(height: 14),
-                TextField(controller: _business, decoration: const InputDecoration(labelText: 'Shop Name', prefixIcon: Icon(Icons.store), border: OutlineInputBorder())),
-                const SizedBox(height: 12),
-                TextField(controller: _owner, decoration: const InputDecoration(labelText: 'Owner Name', prefixIcon: Icon(Icons.person), border: OutlineInputBorder())),
-                const SizedBox(height: 12),
-                TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Customer Email', prefixIcon: Icon(Icons.email), border: OutlineInputBorder())),
-                const SizedBox(height: 12),
-                TextField(controller: _password, obscureText: _obscure, decoration: InputDecoration(labelText: 'Temporary Password', helperText: 'අවම අක්ෂර 6ක්', prefixIcon: const Icon(Icons.lock), border: const OutlineInputBorder(), suffixIcon: IconButton(onPressed: () => setState(() => _obscure = !_obscure), icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off)))),
-                const SizedBox(height: 14),
-                SizedBox(width: double.infinity, height: 50, child: FilledButton.icon(onPressed: _creating ? null : _createCustomer, icon: _creating ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.person_add), label: Text(_creating ? 'Creating...' : 'Customer Account සාදන්න'))),
-              ]),
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Text('👥 Customer List', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance.collection('customers').orderBy('createdAt', descending: true).snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) return Text('Customer list error: ' + snapshot.error.toString());
-              if (!snapshot.hasData) return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
-              if (snapshot.data!.docs.isEmpty) return const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('තව Customer accounts නැහැ.')));
-              return Column(children: snapshot.data!.docs.map((doc) {
-                final d = doc.data();
-                final active = d['active'] != false;
-                return Card(child: ListTile(
-                  leading: CircleAvatar(child: Icon(active ? Icons.store : Icons.block)),
-                  title: Text((d['businessName'] ?? 'Business').toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text((d['ownerName'] ?? '').toString() + '\n' + (d['email'] ?? '').toString()),
-                  isThreeLine: true,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: active ? 'Disable' : 'Enable',
-                        onPressed: () => _setActive(doc.id, !active),
-                        icon: Icon(
-                          active ? Icons.toggle_on : Icons.toggle_off,
-                          size: 32,
-                          color: active ? Colors.green : Colors.grey,
+          Expanded(
+            child: IndexedStack(
+              index: _adminTab,
+              children: [
+                ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFF1B5E20), Color(0xFF43A047)]),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Customer Accounts', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold)),
+                          SizedBox(height: 6),
+                          Text('ගෙවන customers සඳහා login accounts මෙතැනින් සාදන්න.', style: TextStyle(color: Colors.white70)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            const Align(alignment: Alignment.centerLeft, child: Text('➕ අලුත් Customer Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                            const SizedBox(height: 14),
+                            TextField(controller: _business, decoration: const InputDecoration(labelText: 'Shop Name', prefixIcon: Icon(Icons.store), border: OutlineInputBorder())),
+                            const SizedBox(height: 12),
+                            TextField(controller: _owner, decoration: const InputDecoration(labelText: 'Owner Name', prefixIcon: Icon(Icons.person), border: OutlineInputBorder())),
+                            const SizedBox(height: 12),
+                            TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Customer Email', prefixIcon: Icon(Icons.email), border: OutlineInputBorder())),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _password,
+                              obscureText: _obscure,
+                              decoration: InputDecoration(
+                                labelText: 'Temporary Password',
+                                helperText: 'අවම අක්ෂර 6ක්',
+                                prefixIcon: const Icon(Icons.lock),
+                                border: const OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  onPressed: () => setState(() => _obscure = !_obscure),
+                                  icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 50,
+                              child: FilledButton.icon(
+                                onPressed: _creating ? null : _createCustomer,
+                                icon: _creating ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.person_add),
+                                label: Text(_creating ? 'Creating...' : 'Customer Account සාදන්න'),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'පරණ Products මේ Customerට assign කරන්න',
-                        onPressed: () => _claimLegacyProducts(
-                          doc.id,
-                          (d['businessName'] ?? 'Business').toString(),
-                        ),
-                        icon: const Icon(Icons.move_to_inbox_outlined, color: Colors.orange),
-                      ),
-                      IconButton(
-                        tooltip: 'Customer Password Reset',
-                        onPressed: () => _resetCustomerPassword(
-                          (d['email'] ?? '').toString(),
-                          (d['businessNclass PaymentNotificationPage extends StatefulWidget {
+                    ),
+                    const SizedBox(height: 18),
+                    const Text('👥 Customer List', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: FirebaseFirestore.instance.collection('customers').orderBy('createdAt', descending: true).snapshots(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) return Text('Customer list error: ' + snapshot.error.toString());
+                        if (!snapshot.hasData) return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
+                        if (snapshot.data!.docs.isEmpty) return const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('තව Customer accounts නැහැ.')));
+                        return Column(
+                          children: snapshot.data!.docs.map((doc) {
+                            final d = doc.data();
+                            final active = d['active'] != false;
+                            return Card(
+                              child: ListTile(
+                                leading: CircleAvatar(child: Icon(active ? Icons.store : Icons.block)),
+                                title: Text((d['businessName'] ?? 'Business').toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text((d['ownerName'] ?? '').toString() + '\n' + (d['email'] ?? '').toString()),
+                                isThreeLine: true,
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(tooltip: active ? 'Disable' : 'Enable', onPressed: () => _setActive(doc.id, !active), icon: Icon(active ? Icons.toggle_on : Icons.toggle_off, size: 32, color: active ? Colors.green : Colors.grey)),
+                                    IconButton(tooltip: 'පරණ Products මේ Customerට assign කරන්න', onPressed: () => _claimLegacyProducts(doc.id, (d['businessName'] ?? 'Business').toString()), icon: const Icon(Icons.move_to_inbox_outlined, color: Colors.orange)),
+                                    IconButton(tooltip: 'Customer Password Reset', onPressed: () => _resetCustomerPassword((d['email'] ?? '').toString(), (d['businessName'] ?? 'Customer').toString()), icon: const Icon(Icons.lock_reset, color: Colors.blue)),
+                                    IconButton(tooltip: 'Remove Customer', onPressed: () => _removeCustomer(doc.id, (d['businessName'] ?? 'Business').toString()), icon: const Icon(Icons.delete_outline, color: Colors.red)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const PaymentNotificationPage(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class PaymentNotificationPage extends StatefulWidget {
   const PaymentNotificationPage({super.key});
   @override State<PaymentNotificationPage> createState() => _PaymentNotificationPageState();
 }
 class _PaymentNotificationPageState extends State<PaymentNotificationPage> {
-  String? _customerUid; String _customerName=''; final _message=TextEditingController(); final _paymentDate=TextEditingController(); bool _sending=false;
+  String? _customerUid;
+  String _customerName = '';
+  final _message = TextEditingController();
+  final _paymentDate = TextEditingController();
+  bool _sending = false;
   @override void dispose(){_message.dispose();_paymentDate.dispose();super.dispose();}
-  Future<void> _pickDate() async { final now=DateTime.now(); final p=await showDatePicker(context:context,initialDate:now,firstDate:DateTime(now.year-1),lastDate:DateTime(now.year+5)); if(p!=null){_paymentDate.text='${p.day.toString().padLeft(2,'0')}/${p.month.toString().padLeft(2,'0')}/${p.year}';setState((){});} }
+  Future<void> _pickDate() async {
+    final now=DateTime.now();
+    final picked=await showDatePicker(context:context,initialDate:now,firstDate:DateTime(now.year-1),lastDate:DateTime(now.year+5));
+    if(picked!=null){_paymentDate.text='${picked.day.toString().padLeft(2,'0')}/${picked.month.toString().padLeft(2,'0')}/${picked.year}';setState((){});}
+  }
   Future<void> _send() async {
     if(_customerUid==null){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('මුලින් Customer කෙනෙක් තෝරන්න.')));return;}
     if(_message.text.trim().isEmpty){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('පණිවිඩය ඇතුළත් කරන්න.')));return;}
     setState(()=>_sending=true);
     try{
-      await FirebaseFirestore.instance.collection('notifications').add({'customerUid':_customerUid,'customerName':_customerName,'title':'💳 ගෙවීම් මතක් කිරීම','message':_message.text.trim(),'paymentDate':_paymentDate.text.trim(),'read':false,'createdAt':FieldValue.serverTimestamp()});
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'customerUid':_customerUid,'customerName':_customerName,'title':'💳 ගෙවීම් මතක් කිරීම',
+        'message':_message.text.trim(),'paymentDate':_paymentDate.text.trim(),'read':false,'createdAt':FieldValue.serverTimestamp(),
+      });
       _message.clear();_paymentDate.clear();
       if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('✅ $_customerName වෙත දැනුම්දීම යැව්වා.')));
     }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('දැනුම්දීම යවන්න බැරි වුණා.\n$e')));}
@@ -886,46 +939,69 @@ class _PaymentNotificationPageState extends State<PaymentNotificationPage> {
       stream:FirebaseFirestore.instance.collection('customers').orderBy('createdAt',descending:true).snapshots(),
       builder:(context,snapshot){
         if(snapshot.hasError)return Center(child:Text('Customer list error: ${snapshot.error}'));
-        final docs=snapshot.data?.docs??[];
+        if(!snapshot.hasData)return const Center(child:CircularProgressIndicator());
+        final docs=snapshot.data!.docs;
         if(docs.isEmpty)return const Center(child:Text('Customer accounts නැහැ.'));
-        return ListView(padding:const EdgeInsets.all(16),children:[Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-          const Text('🔔 Customer Payment Reminder',style:TextStyle(fontSize:19,fontWeight:FontWeight.bold)),const SizedBox(height:8),
-          const Text('Customer කෙනෙක් තෝරගෙන payment date එක සහ message එක manually යවන්න.',style:TextStyle(color:Colors.grey)),const SizedBox(height:16),
-          DropdownButtonFormField<String>(value:_customerUid,decoration:const InputDecoration(labelText:'Customer තෝරන්න',prefixIcon:Icon(Icons.person_outline),border:OutlineInputBorder()),
-            items:docs.map((doc){final d=doc.data();final n=(d['businessName']??d['shopName']??'Customer').toString();return DropdownMenuItem(value:doc.id,child:Text(n));}).toList(),
-            onChanged:(v){if(v==null)return;final d=docs.firstWhere((x)=>x.id==v).data();setState(() { _customerUid = v; _customerName = (d['businessName'] ?? d['shopName'] ?? 'Customer').toString(); });}),
-          const SizedBox(height:12),
-          TextField(controller:_paymentDate,readOnly:true,onTap:_pickDate,decoration:const InputDecoration(labelText:'Payment Date',hintText:'දිනය තෝරන්න',prefixIcon:Icon(Icons.calendar_month),border:OutlineInputBorder())),
-          const SizedBox(height:12),
-          TextField(controller:_message,maxLines:4,decoration:const InputDecoration(labelText:'දැනුම්දීමේ පණිවිඩය',hintText:'උදා: ඔබගේ ගෙවීම 05/10/2026 දිනට ගෙවීමට නියමිතයි.',prefixIcon:Icon(Icons.message_outlined),border:OutlineInputBorder())),
-          const SizedBox(height:16),
-          SizedBox(height:52,child:FilledButton.icon(onPressed:_sending?null:_send,icon:_sending?const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.send),label:Text(_sending?'යවමින්...':'🔔 දැනුම්දීම යවන්න'))),
-        ])))]);
-      });
+        return ListView(padding:const EdgeInsets.all(16),children:[
+          Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+            const Text('🔔 Customer Payment Reminder',style:TextStyle(fontSize:19,fontWeight:FontWeight.bold)),
+            const SizedBox(height:8),
+            const Text('Customer කෙනෙක් තෝරගෙන payment date එක සහ message එක manually යවන්න.',style:TextStyle(color:Colors.grey)),
+            const SizedBox(height:16),
+            DropdownButtonFormField<String>(
+              value:_customerUid,
+              decoration:const InputDecoration(labelText:'Customer තෝරන්න',prefixIcon:Icon(Icons.person_outline),border:OutlineInputBorder()),
+              items:docs.map((doc){final d=doc.data();final name=(d['businessName']??d['shopName']??'Customer').toString();return DropdownMenuItem(value:doc.id,child:Text(name));}).toList(),
+              onChanged:(value){if(value==null)return;final d=docs.firstWhere((doc)=>doc.id==value).data();setState((){_customerUid=value;_customerName=(d['businessName']??d['shopName']??'Customer').toString();});},
+            ),
+            const SizedBox(height:12),
+            TextField(controller:_paymentDate,readOnly:true,onTap:_pickDate,decoration:const InputDecoration(labelText:'Payment Date',hintText:'දිනය තෝරන්න',prefixIcon:Icon(Icons.calendar_month),border:OutlineInputBorder())),
+            const SizedBox(height:12),
+            TextField(controller:_message,maxLines:4,decoration:const InputDecoration(labelText:'දැනුම්දීමේ පණිවිඩය',hintText:'උදා: ඔබගේ ගෙවීම 05/10/2026 දිනට ගෙවීමට නියමිතයි.',prefixIcon:Icon(Icons.message_outlined),border:OutlineInputBorder())),
+            const SizedBox(height:16),
+            SizedBox(height:52,child:FilledButton.icon(onPressed:_sending?null:_send,icon:_sending?const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.send),label:Text(_sending?'යවමින්...':'🔔 දැනුම්දීම යවන්න'))),
+          ]))),
+        ]);
+      },
+    );
   }
 }
 
-ame'] ?? 'Customer').toString(),
-                        ),
-                        icon: const Icon(Icons.lock_reset, color: Colors.blue),
-                      ),
-                      IconButton(
-                        tooltip: 'Remove Customer',
-                        onPressed: () => _removeCustomer(
-                          doc.id,
-                          (d['businessName'] ?? 'Business').toString(),
-                        ),
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      ),
-                    ],
-                  ),
-                ));
-              }).toList());
+class CustomerNotificationsPage extends StatelessWidget {
+  const CustomerNotificationsPage({super.key});
+  Future<void> _markRead(DocumentSnapshot<Map<String,dynamic>> doc) async {try{await doc.reference.update({'read':true});}catch(_){}}
+  @override Widget build(BuildContext context){
+    final uid=FirebaseAuth.instance.currentUser?.uid??'__none__';
+    return Scaffold(
+      appBar:AppBar(title:const Text('🔔 දැනුම්දීම්')),
+      body:StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(
+        stream:FirebaseFirestore.instance.collection('notifications').where('customerUid',isEqualTo:uid).snapshots(),
+        builder:(context,snapshot){
+          if(snapshot.hasError)return Center(child:Text('දැනුම්දීම් දෝෂයක්: ${snapshot.error}'));
+          if(!snapshot.hasData)return const Center(child:CircularProgressIndicator());
+          final docs=[...snapshot.data!.docs];
+          docs.sort((a,b){
+            final at=a.data()['createdAt'],bt=b.data()['createdAt'];
+            final am=at is Timestamp?at.millisecondsSinceEpoch:0;
+            final bm=bt is Timestamp?bt.millisecondsSinceEpoch:0;
+            return bm.compareTo(am);
+          });
+          if(docs.isEmpty)return const Center(child:Text('දැනට දැනුම්දීම් නැහැ.'));
+          return ListView.separated(
+            padding:const EdgeInsets.all(14),itemCount:docs.length,
+            separatorBuilder:(_,__)=>const SizedBox(height:8),
+            itemBuilder:(context,index){
+              final doc=docs[index],d=doc.data(),read=d['read']==true;
+              final msg=(d['message']??'').toString(),date=(d['paymentDate']??'').toString();
+              return Card(child:ListTile(
+                onTap:()=>_markRead(doc),
+                leading:Icon(read?Icons.notifications_none:Icons.notifications_active,color:read?Colors.grey:Colors.green),
+                title:Text((d['title']??'දැනුම්දීම').toString(),style:TextStyle(fontWeight:read?FontWeight.normal:FontWeight.bold)),
+                subtitle:Text(msg+(date.isEmpty?'':'\n💳 ගෙවීම් දිනය: $date')),
+              ));
             },
-          ),
-        ],
-      ), const PaymentNotificationPage()])),
-        ],
+          );
+        },
       ),
     );
   }
@@ -996,9 +1072,13 @@ class _HomePageState extends State<HomePage> {
         ),
         centerTitle: true,
         actions: [
-          StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(
-            stream:FirebaseFirestore.instance.collection('notifications').where('customerUid',isEqualTo:FirebaseAuth.instance.currentUser?.uid??'__none__').snapshots(),
-            builder:(context,snapshot){final unread=(snapshot.data?.docs??[]).where((d)=>d.data()['read']!=true).length;return IconButton(tooltip:'දැනුම්දීම්',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const CustomerNotificationsPage())),icon:Badge(isLabelVisible:unread>0,label:Text(unread>99?'99+':unread.toString()),child:const Icon(Icons.notifications_outlined)));},
+          IconButton(
+            tooltip: 'දැනුම්දීම්',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CustomerNotificationsPage()),
+            ),
+            icon: const Icon(Icons.notifications_active_outlined),
           ),
           IconButton(
             tooltip: 'Logout',
@@ -1093,24 +1173,7 @@ class _HomePageState extends State<HomePage> {
               subtitle: 'Purchase / Stock වැඩි කරන්න',
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const Purchasclass CustomerNotificationsPage extends StatelessWidget {
-  const CustomerNotificationsPage({super.key});
-  Future<void> _markRead(DocumentSnapshot<Map<String,dynamic>> doc) async {try{await doc.reference.update({'read':true});}catch(_){}}
-  @override Widget build(BuildContext context){
-    final uid=FirebaseAuth.instance.currentUser?.uid??'__none__';
-    return Scaffold(appBar:AppBar(title:const Text('🔔 දැනුම්දීම්')),body:StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(
-      stream:FirebaseFirestore.instance.collection('notifications').where('customerUid',isEqualTo:uid).snapshots(),
-      builder:(context,snapshot){
-        if(snapshot.hasError)return Center(child:Text('දැනුම්දීම් දෝෂයක්: ${snapshot.error}'));
-        if(!snapshot.hasData)return const Center(child:CircularProgressIndicator());
-        final docs=[...snapshot.data!.docs]; docs.sort((a,b){final at=a.data()['createdAt'],bt=b.data()['createdAt'];final am=at is Timestamp?at.millisecondsSinceEpoch:0,bm=bt is Timestamp?bt.millisecondsSinceEpoch:0;return bm.compareTo(am);});
-        if(docs.isEmpty)return const Center(child:Text('දැනට දැනුම්දීම් නැහැ.'));
-        return ListView.separated(padding:const EdgeInsets.all(14),itemCount:docs.length,separatorBuilder:(_,__)=>const SizedBox(height:8),itemBuilder:(context,index){final doc=docs[index],d=doc.data(),read=d['read']==true;final msg=(d['message']??'').toString(),date=(d['paymentDate']??'').toString();return Card(child:ListTile(onTap:()=>_markRead(doc),leading:Icon(read?Icons.notifications_none:Icons.notifications_active,color:read?Colors.grey:Colors.green),title:Text((d['title']??'දැනුම්දීම').toString(),style:TextStyle(fontWeight:read?FontWeight.normal:FontWeight.bold)),subtitle:Text(msg+(date.isEmpty?'':'\n💳 ගෙවීම් දිනය: $date'))));});
-      }));
-  }
-}
-
-ePage()),
+                MaterialPageRoute(builder: (_) => const PurchasePage()),
               ),
             ),
             const SizedBox(height: 20),
