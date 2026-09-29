@@ -893,7 +893,7 @@ class _PaymentNotificationPageState extends State<PaymentNotificationPage> {
           const Text('Customer කෙනෙක් තෝරගෙන payment date එක සහ message එක manually යවන්න.',style:TextStyle(color:Colors.grey)),const SizedBox(height:16),
           DropdownButtonFormField<String>(value:_customerUid,decoration:const InputDecoration(labelText:'Customer තෝරන්න',prefixIcon:Icon(Icons.person_outline),border:OutlineInputBorder()),
             items:docs.map((doc){final d=doc.data();final n=(d['businessName']??d['shopName']??'Customer').toString();return DropdownMenuItem(value:doc.id,child:Text(n));}).toList(),
-            onChanged:(v){if(v==null)return;final d=docs.firstWhere((x)=>x.id==v).data();setState(()=>{_customerUid=v,_customerName=(d['businessName']??d['shopName']??'Customer').toString()});}),
+            onChanged:(v){if(v==null)return;final d=docs.firstWhere((x)=>x.id==v).data();setState(() { _customerUid = v; _customerName = (d['businessName'] ?? d['shopName'] ?? 'Customer').toString(); });}),
           const SizedBox(height:12),
           TextField(controller:_paymentDate,readOnly:true,onTap:_pickDate,decoration:const InputDecoration(labelText:'Payment Date',hintText:'දිනය තෝරන්න',prefixIcon:Icon(Icons.calendar_month),border:OutlineInputBorder())),
           const SizedBox(height:12),
