@@ -1860,6 +1860,48 @@ class _AddProductPageState extends State<AddProductPage> {
       // Continue to the public barcode database if our lookup is unavailable.
     }
 
+    // This barcode is not in this customer's own products.
+    // Check the shared Product Master and copy ONLY common information.
+    // Another shop's buy price, selling price, stock and expiry are private.
+    try {
+      final masterDoc = await FirebaseFirestore.instance
+          .collection('productMaster')
+          .doc(scannedBarcode)
+          .get();
+
+      if (!mounted) return;
+
+      if (masterDoc.exists) {
+        final data = masterDoc.data() ?? <String, dynamic>{};
+
+        setState(() {
+          _nameController.text = (data['name'] ?? '').toString();
+
+          final savedCategory = (data['category'] ?? '').toString();
+          _categoryController.text =
+              _isAllowedCategory(savedCategory) ? savedCategory : 'වෙනත්';
+
+          _imageUrl = (data['imageUrl'] ?? '').toString();
+          _imageData = (data['imageData'] ?? '').toString();
+
+          // These values belong to THIS shop and must be entered separately.
+          _buyPriceController.clear();
+          _sellingPriceController.clear();
+          _stockController.clear();
+          _expiryDateController.clear();
+          _lowStockController.text = '5';
+        });
+
+        _showMessage(
+          '🌐 Shared Product Master එකෙන් නම, වර්ගය සහ Photo එක පමණක් auto-fill කළා. '
+          'ඔයාගේ shop එකේ මිල, තොගය සහ expiry date වෙනම දාන්න.',
+        );
+        return;
+      }
+    } catch (_) {
+      // Continue to the public barcode database if the master is unavailable.
+    }
+
     // If this is a new barcode, get the general product information online.
     // Shop-specific buying/selling prices cannot be reliably obtained online,
     // so those will be entered once and then remembered in Firestore.
@@ -3235,7 +3277,7 @@ class _NewBillPageState extends State<NewBillPage> {
         ),
         Expanded(
           child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance.collection('products').snapshots(),
+            stream: _myProductsQuery().snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Center(child: Text('භාණ්ඩ ලැයිස්තුව ලබාගැනීමේදී දෝෂයක් ඇතිවුණා.'));
