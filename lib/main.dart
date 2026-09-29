@@ -186,7 +186,6 @@ class _AdminSetupPageState extends State<AdminSetupPage> {
   final _password = TextEditingController();
   bool _loading = false;
   bool _obscure = true;
-  int _adminTab = 0;
 
   Future<void> _createAdmin() async {
     final shop = _shop.text.trim();
@@ -467,6 +466,7 @@ class AdminPanel extends StatefulWidget {
 }
 
 class _AdminPanelState extends State<AdminPanel> {
+  int _adminTab = 0;
   final _business = TextEditingController();
   final _owner = TextEditingController();
   final _email = TextEditingController();
