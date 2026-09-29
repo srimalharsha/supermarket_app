@@ -502,6 +502,7 @@ class _AdminPanelState extends State<AdminPanel> {
       // The primary Firebase app is still authenticated as Admin.
       await FirebaseFirestore.instance.collection('customers').doc(customerUid).set({
         'businessName': business,
+        'shopName': business,
         'ownerName': owner,
         'email': email,
         'active': true,
@@ -738,7 +739,7 @@ class _AdminPanelState extends State<AdminPanel> {
               child: Column(children: [
                 const Align(alignment: Alignment.centerLeft, child: Text('➕ අලුත් Customer Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
                 const SizedBox(height: 14),
-                TextField(controller: _business, decoration: const InputDecoration(labelText: 'Business Name', prefixIcon: Icon(Icons.store), border: OutlineInputBorder())),
+                TextField(controller: _business, decoration: const InputDecoration(labelText: 'Shop Name', prefixIcon: Icon(Icons.store), border: OutlineInputBorder())),
                 const SizedBox(height: 12),
                 TextField(controller: _owner, decoration: const InputDecoration(labelText: 'Owner Name', prefixIcon: Icon(Icons.person), border: OutlineInputBorder())),
                 const SizedBox(height: 12),
@@ -807,8 +808,32 @@ class _AdminPanelState extends State<AdminPanel> {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  String _shopName = 'සුපිරි වෙළඳසැල';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadShopName();
+  }
+
+  Future<void> _loadShopName() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || uid.isEmpty) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('customers').doc(uid).get();
+      final data = doc.data() ?? {};
+      final name = (data['shopName'] ?? data['businessName'] ?? '').toString().trim();
+      if (mounted && name.isNotEmpty) setState(() => _shopName = name);
+    } catch (_) {}
+  }
 
   Future<void> _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
@@ -843,8 +868,8 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          '🏪 සුපිරි වෙළඳසැල',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          '🏪 $_shopName',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         actions: [
@@ -2393,6 +2418,19 @@ class _AddProductPageState extends State<AddProductPage> {
 
 
 
+Future<String> _getCurrentShopName() async {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null || uid.isEmpty) return 'සුපිරි වෙළඳසැල';
+  try {
+    final doc = await FirebaseFirestore.instance.collection('customers').doc(uid).get();
+    final data = doc.data() ?? {};
+    final name = (data['shopName'] ?? data['businessName'] ?? '').toString().trim();
+    return name.isEmpty ? 'සුපිරි වෙළඳසැල' : name;
+  } catch (_) {
+    return 'සුපිරි වෙළඳසැල';
+  }
+}
+
 class BillHistoryPage extends StatefulWidget {
   const BillHistoryPage({super.key});
   @override
@@ -2615,6 +2653,7 @@ class _BillHistoryPageState extends State<BillHistoryPage> {
                                 MaterialPageRoute(
                                   builder: (_) => BillReceiptPage(
                                     billNumber: billNumber,
+                                    shopName: (data['shopName'] ?? 'සුපිරි වෙළඳසැල').toString(),
                                     dateKey: (data['dateKey'] ?? key).toString(),
                                     items: receiptItems,
                                     total: total,
@@ -2643,6 +2682,7 @@ class _BillHistoryPageState extends State<BillHistoryPage> {
                                   MaterialPageRoute(
                                     builder: (_) => BillReceiptPage(
                                       billNumber: billNumber,
+                                      shopName: (data['shopName'] ?? 'සුපිරි වෙළඳසැල').toString(),
                                       dateKey: (data['dateKey'] ?? key).toString(),
                                       items: receiptItems,
                                       total: total,
@@ -2859,7 +2899,8 @@ class _NewBillPageState extends State<NewBillPage> {
         }).toList();
 
         transaction.set(billRef, {
-          'billNumber': billRef.id,
+           'billNumber': billRef.id,
+          'shopName': await _getCurrentShopName(),
           'items': billItems,
           'total': savedTotal,
           'createdAt': FieldValue.serverTimestamp(),
@@ -2894,6 +2935,7 @@ class _NewBillPageState extends State<NewBillPage> {
         MaterialPageRoute(
           builder: (_) => BillReceiptPage(
             billNumber: billRef.id,
+            shopName: await _getCurrentShopName(),
             dateKey: _todayKey,
             items: receiptItems,
             total: savedTotal,
