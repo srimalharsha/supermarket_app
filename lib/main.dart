@@ -420,15 +420,6 @@ class _LoginPageState extends State<LoginPage> {
                         child: const Text('Password අමතකද?'),
                       ),
                       const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: _loading ? null : () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const AdminSetupPage()),
-                          );
-                        },
-                        icon: const Icon(Icons.admin_panel_settings),
-                        label: const Text('පළමු Admin Account එක Setup කරන්න'),
-                      ),
                       const SizedBox(height: 12),
                       const Text(
                         'Registration නැත. Customer Account ලබාගන්නේ App Admin හරහා පමණි.',
