@@ -187,9 +187,9 @@ class _BillReceiptPageState extends State<BillReceiptPage> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'නිර්මාණය: Srimal Harsha',
+            'Powered by SriHarsha Digital',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, color: Colors.grey),
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey),
           ),
         ],
       ),
