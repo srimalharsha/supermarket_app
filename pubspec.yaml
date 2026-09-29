@@ -15,7 +15,6 @@ dependencies:
   cloud_functions: ^6.0.4
   cloud_firestore: ^6.1.0
   firebase_storage: ^13.1.0
-  firebase_messaging: ^16.0.1
   image_picker: ^1.2.1
   mobile_scanner: ^7.4.2
   http: ^1.5.0
