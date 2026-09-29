@@ -2421,6 +2421,7 @@ class _NewBillPageState extends State<NewBillPage> {
     final price = (data['sellingPrice'] as num?)?.toDouble() ?? 0;
     final stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
     final imageUrl = (data['imageUrl'] ?? '').toString();
+    final imageData = (data['imageData'] ?? '').toString();
 
     if (price <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2454,6 +2455,7 @@ class _NewBillPageState extends State<NewBillPage> {
           quantity: 1,
           stock: stock,
           imageUrl: imageUrl,
+          imageData: imageData,
         ));
       }
     });
@@ -2535,6 +2537,7 @@ class _NewBillPageState extends State<NewBillPage> {
           'price': item.price,
           'quantity': item.quantity,
           'total': item.total,
+          'imageData': item.imageData,
         }).toList();
 
         transaction.set(billRef, {
@@ -2565,6 +2568,7 @@ class _NewBillPageState extends State<NewBillPage> {
         'price': item.price,
         'quantity': item.quantity,
         'total': item.total,
+        'imageData': item.imageData,
       }).toList();
 
       await Navigator.pushReplacement(
@@ -2592,6 +2596,14 @@ class _NewBillPageState extends State<NewBillPage> {
   }
 
   Widget _productImage(_BillItem item) {
+    if (item.imageData.isNotEmpty) {
+      try {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(base64Decode(item.imageData), width: 58, height: 58, fit: BoxFit.cover),
+        );
+      } catch (_) {}
+    }
     if (item.imageUrl.isEmpty) {
       return Container(
         width: 58,
@@ -2832,6 +2844,7 @@ class _NewBillPageState extends State<NewBillPage> {
                   final price = (data['sellingPrice'] as num?)?.toDouble() ?? 0;
                   final stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
                   final imageUrl = (data['imageUrl'] ?? '').toString();
+                  final imageData = (data['imageData'] ?? '').toString();
                   return Card(
                     margin: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -2845,7 +2858,11 @@ class _NewBillPageState extends State<NewBillPage> {
                             Expanded(
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: imageUrl.isEmpty
+                                child: imageData.isNotEmpty
+                                    ? Image.memory(base64Decode(imageData), width: double.infinity, fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(width: double.infinity, color: Colors.green.shade50,
+                                          child: Icon(Icons.shopping_bag, size: 48, color: Colors.green.shade700)))
+                                    : imageUrl.isEmpty
                                     ? Container(width: double.infinity, color: Colors.green.shade50,
                                         child: Icon(Icons.shopping_bag, size: 48, color: Colors.green.shade700))
                                     : Image.network(imageUrl, width: double.infinity, fit: BoxFit.cover,
@@ -2985,12 +3002,15 @@ class _NewBillPageState extends State<NewBillPage> {
                   final price = (data['sellingPrice'] as num?)?.toDouble() ?? 0;
                   final stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
                   final imageUrl = (data['imageUrl'] ?? '').toString();
+                  final imageData = (data['imageData'] ?? '').toString();
 
                   return Card(
                     margin: EdgeInsets.zero,
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      leading: imageUrl.isEmpty
+                      leading: imageData.isNotEmpty
+                          ? ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(base64Decode(imageData), width: 52, height: 52, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 52, height: 52, color: Colors.green.shade50, child: Icon(Icons.shopping_bag, color: Colors.green.shade700))))
+                          : imageUrl.isEmpty
                           ? Container(
                               width: 52,
                               height: 52,
@@ -3176,6 +3196,7 @@ class _BillItem {
     required this.quantity,
     required this.stock,
     required this.imageUrl,
+    required this.imageData,
   });
 
   final String docId;
@@ -3185,6 +3206,7 @@ class _BillItem {
   int quantity;
   final int stock;
   final String imageUrl;
+  final String imageData;
 
   double get total => price * quantity;
 }
