@@ -867,7 +867,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           '🏪 $_shopName',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
