@@ -566,6 +566,66 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
+  Future<void> _resetOwnerPassword() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final email = user?.email?.trim() ?? '';
+
+    if (email.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Owner Email එක හමු වුණේ නැහැ.')),
+        );
+      }
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('🔑 Owner Password Reset'),
+        content: Text(
+          '$email වෙත Password Reset Email එකක් යවන්නද?\n\n'
+          'Email එකේ link එක open කරලා අලුත් Password එකක් දාන්න පුළුවන්.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('අවලංගු කරන්න'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Reset Email යවන්න'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Owner Password Reset Email එක යැව්වා. Email Inbox එක පරීක්ෂා කරන්න.'),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Password Reset error: ${e.message ?? e.code}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Password Reset කරන්න බැරි වුණා.\n$e')),
+        );
+      }
+    }
+  }
+
   Future<void> _setActive(String uid, bool active) async {
     try {
       await FirebaseFirestore.instance.collection('customers').doc(uid).update({
@@ -739,6 +799,33 @@ class _AdminPanelState extends State<AdminPanel> {
               SizedBox(height: 6),
               Text('ගෙවන customers සඳහා login accounts මෙතැනින් සාදන්න.', style: TextStyle(color: Colors.white70)),
             ]),
+          ),
+          const SizedBox(height: 18),
+          Card(
+            color: Colors.green.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    '🔑 Owner Account',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Owner Password එක අමතක වුණොත් මෙතැනින් Reset Email එකක් යවන්න.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _resetOwnerPassword,
+                    icon: const Icon(Icons.lock_reset),
+                    label: const Text('Owner Password Reset'),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 18),
           Card(
