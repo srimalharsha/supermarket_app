@@ -11,12 +11,14 @@ class BillReceiptPage extends StatefulWidget {
   const BillReceiptPage({
     super.key,
     required this.billNumber,
+    required this.shopName,
     required this.dateKey,
     required this.items,
     required this.total,
   });
 
   final String billNumber;
+  final String shopName;
   final String dateKey;
   final List<Map<String, dynamic>> items;
   final double total;
@@ -50,8 +52,8 @@ class _BillReceiptPageState extends State<BillReceiptPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            '🏪 සුපිරි වෙළඳසැල',
+          Text(
+            '🏪 ' + widget.shopName,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800),
           ),
