@@ -1285,15 +1285,75 @@ class _StockPageState extends State<StockPage> {
                                   Row(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      CircleAvatar(
-                                        backgroundColor:
-                                            statusColor.withValues(alpha: 0.12),
-                                        child: Icon(
-                                          isOut
-                                              ? Icons.remove_shopping_cart
-                                              : Icons.inventory_2,
-                                          color: statusColor,
-                                        ),
+                                      Builder(
+                                        builder: (context) {
+                                          final imageData =
+                                              (data['imageData'] ?? '').toString();
+                                          final imageUrl =
+                                              (data['imageUrl'] ?? '').toString();
+
+                                          if (imageData.isNotEmpty) {
+                                            try {
+                                              return ClipRRect(
+                                                borderRadius: BorderRadius.circular(12),
+                                                child: Image.memory(
+                                                  base64Decode(imageData),
+                                                  width: 58,
+                                                  height: 58,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      CircleAvatar(
+                                                    radius: 29,
+                                                    backgroundColor:
+                                                        statusColor.withValues(alpha: 0.12),
+                                                    child: Icon(
+                                                      isOut
+                                                          ? Icons.remove_shopping_cart
+                                                          : Icons.inventory_2,
+                                                      color: statusColor,
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            } catch (_) {}
+                                          }
+
+                                          if (imageUrl.isNotEmpty) {
+                                            return ClipRRect(
+                                              borderRadius: BorderRadius.circular(12),
+                                              child: Image.network(
+                                                imageUrl,
+                                                width: 58,
+                                                height: 58,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) =>
+                                                    CircleAvatar(
+                                                  radius: 29,
+                                                  backgroundColor:
+                                                      statusColor.withValues(alpha: 0.12),
+                                                  child: Icon(
+                                                    isOut
+                                                        ? Icons.remove_shopping_cart
+                                                        : Icons.inventory_2,
+                                                    color: statusColor,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          }
+
+                                          return CircleAvatar(
+                                            radius: 29,
+                                            backgroundColor:
+                                                statusColor.withValues(alpha: 0.12),
+                                            child: Icon(
+                                              isOut
+                                                  ? Icons.remove_shopping_cart
+                                                  : Icons.inventory_2,
+                                              color: statusColor,
+                                            ),
+                                          );
+                                        },
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
