@@ -983,7 +983,7 @@ class _HomePageState extends State<HomePage> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: _myBillsQuery().snapshots(),
               builder: (context, snapshot) {
                 final todayKey = DateTime.now().toIso8601String().substring(0, 10);
