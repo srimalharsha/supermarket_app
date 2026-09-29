@@ -1349,9 +1349,12 @@ class _StockPageState extends State<StockPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final docs = [...(snapshot.data?.docs ?? [])]
-            ..sort((a, b) => (a.data()['name'] ?? '').toString().toLowerCase()
-                .compareTo((b.data()['name'] ?? '').toString().toLowerCase()));
+          final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs =
+              List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
+                snapshot.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[],
+              )
+                ..sort((a, b) => (a.data()['name'] ?? '').toString().toLowerCase()
+                    .compareTo((b.data()['name'] ?? '').toString().toLowerCase()));
           if (docs.isEmpty) {
             return const Center(
               child: Text(
