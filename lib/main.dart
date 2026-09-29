@@ -48,6 +48,14 @@ CollectionReference<Map<String, dynamic>> _allProductsRef() {
   return FirebaseFirestore.instance.collection('products');
 }
 
+Query<Map<String, dynamic>> _myBillsQuery() {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null || uid.isEmpty) {
+    return FirebaseFirestore.instance.collection('bills').where('ownerUid', isEqualTo: '__no_user__');
+  }
+  return FirebaseFirestore.instance.collection('bills').where('ownerUid', isEqualTo: uid);
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -976,14 +984,13 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 12),
             StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('dailySales')
-                  .doc(DateTime.now().toIso8601String().substring(0, 10))
-                  .snapshots(),
+              stream: _myBillsQuery().snapshots(),
               builder: (context, snapshot) {
-                final data = snapshot.data?.data() ?? {};
-                final bills = (data['billCount'] as num?)?.toInt() ?? 0;
-                final revenue = (data['revenue'] as num?)?.toDouble() ?? 0;
+                final todayKey = DateTime.now().toIso8601String().substring(0, 10);
+                final docs = snapshot.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+                final todayDocs = docs.where((doc) => (doc.data()['dateKey'] ?? '').toString() == todayKey).toList();
+                final bills = todayDocs.length;
+                final revenue = todayDocs.fold<double>(0, (sum, doc) => sum + ((doc.data()['total'] as num?)?.toDouble() ?? 0));
                 return Row(
                   children: [
                     Expanded(
@@ -2519,7 +2526,9 @@ class _BillHistoryPageState extends State<BillHistoryPage> {
           });
         }
 
-        final salesRef = firestore.collection('dailySales').doc(dateKey);
+        final ownerUid = (data['ownerUid'] ?? FirebaseAuth.instance.currentUser?.uid ?? '').toString();
+        if (ownerUid.isEmpty) throw Exception('මෙම බිල්පතේ customer account තොරතුරු නැහැ.');
+        final salesRef = firestore.collection('dailySales').doc(ownerUid + '_' + dateKey);
         transaction.set(
           salesRef,
           {
@@ -2578,10 +2587,7 @@ class _BillHistoryPageState extends State<BillHistoryPage> {
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('bills')
-                  .where('dateKey', isEqualTo: key)
-                  .snapshots(),
+              stream: _myBillsQuery().snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return const Center(
@@ -2592,7 +2598,9 @@ class _BillHistoryPageState extends State<BillHistoryPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final docs = [...snapshot.data!.docs];
+                final docs = snapshot.data!.docs.where((doc) {
+                  return (doc.data()['dateKey'] ?? '').toString() == key;
+                }).toList();
                 docs.sort((a, b) {
                   final at = a.data()['createdAt'] as Timestamp?;
                   final bt = b.data()['createdAt'] as Timestamp?;
@@ -2862,7 +2870,9 @@ class _NewBillPageState extends State<NewBillPage> {
     try {
       final firestore = FirebaseFirestore.instance;
       final billRef = firestore.collection('bills').doc();
-      final salesRef = firestore.collection('dailySales').doc(_todayKey);
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null || uid.isEmpty) throw Exception('Customer account එක හමු වුණේ නැහැ.');
+      final salesRef = firestore.collection('dailySales').doc(uid + '_' + _todayKey);
       final savedTotal = _total;
       final shopName = await _getCurrentShopName();
 
@@ -2901,6 +2911,7 @@ class _NewBillPageState extends State<NewBillPage> {
 
         transaction.set(billRef, {
            'billNumber': billRef.id,
+          'ownerUid': uid,
           'shopName': shopName,
           'items': billItems,
           'total': savedTotal,
