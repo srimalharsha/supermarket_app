@@ -553,10 +553,69 @@ class _AdminPanelState extends State<AdminPanel> {
   }
 
   Future<void> _setActive(String uid, bool active) async {
-    await FirebaseFirestore.instance.collection('customers').doc(uid).update({
-      'active': active,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    try {
+      await FirebaseFirestore.instance.collection('customers').doc(uid).update({
+        'active': active,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(active ? '✅ Customer account එක සක්‍රීය කළා.' : '⛔ Customer account එක අක්‍රීය කළා.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Account status වෙනස් කරන්න බැරි වුණා.\\n$e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _removeCustomer(String uid, String businessName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Customer Account ඉවත් කරන්නද?'),
+        content: Text(
+          '$businessName account එක Customer List එකෙන් ඉවත් කර access එකත් නවත්වනවා.\\n\\n'
+          'මෙය කළ පසු customer ට login වීමට නොහැක. ඉවත් කිරීම ආපසු ගත නොහැක.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('අවලංගු කරන්න'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('ඉවත් කරන්න'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // With Firebase Spark/client-only setup we cannot delete another user's
+      // Firebase Auth account from the Admin client's Auth SDK. Removing the
+      // customer document makes AuthGate deny access, so the account is
+      // immediately unusable and disappears from the Admin customer list.
+      await FirebaseFirestore.instance.collection('customers').doc(uid).delete();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('🗑️ Customer account එක ඉවත් කළා. Login access එකත් නවත්වලා.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Customer account එක ඉවත් කරන්න බැරි වුණා.\\n$e')),
+        );
+      }
+    }
   }
 
   @override
@@ -623,7 +682,28 @@ class _AdminPanelState extends State<AdminPanel> {
                   title: Text((d['businessName'] ?? 'Business').toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text((d['ownerName'] ?? '').toString() + '\n' + (d['email'] ?? '').toString()),
                   isThreeLine: true,
-                  trailing: Switch(value: active, onChanged: (value) => _setActive(doc.id, value)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: active ? 'Disable' : 'Enable',
+                        onPressed: () => _setActive(doc.id, !active),
+                        icon: Icon(
+                          active ? Icons.toggle_on : Icons.toggle_off,
+                          size: 32,
+                          color: active ? Colors.green : Colors.grey,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Remove Customer',
+                        onPressed: () => _removeCustomer(
+                          doc.id,
+                          (d['businessName'] ?? 'Business').toString(),
+                        ),
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      ),
+                    ],
+                  ),
                 ));
               }).toList());
             },
