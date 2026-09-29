@@ -850,11 +850,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openAddProduct(BuildContext context) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductPage()));
+    Navigator.push(context, MaterialPageRoute(builder: (_) => AddProductPage()));
   }
 
   void _openStock(BuildContext context) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const StockPage()));
+    Navigator.push(context, MaterialPageRoute(builder: (_) => StockPage()));
   }
 
   @override
@@ -921,7 +921,7 @@ class _HomePageState extends State<HomePage> {
                     icon: Icons.receipt_long,
                     title: 'අලුත් බිල්පත',
                     subtitle: 'අලුත් බිල්පත',
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewBillPage())),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => NewBillPage())),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -965,7 +965,7 @@ class _HomePageState extends State<HomePage> {
               width: double.infinity,
               height: 54,
               child: FilledButton.icon(
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BillHistoryPage())),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BillHistoryPage())),
                 icon: const Icon(Icons.calendar_month),
                 label: const Text('📅 බිල්පත් ඉතිහාසය / දින අනුව බලන්න'),
               ),
