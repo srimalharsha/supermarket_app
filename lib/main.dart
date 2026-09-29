@@ -186,7 +186,6 @@ class _AdminSetupPageState extends State<AdminSetupPage> {
   final _password = TextEditingController();
   bool _loading = false;
   bool _obscure = true;
-  int _adminTab = 0;
 
   Future<void> _createAdmin() async {
     final shop = _shop.text.trim();
@@ -473,6 +472,7 @@ class _AdminPanelState extends State<AdminPanel> {
   final _password = TextEditingController();
   bool _creating = false;
   bool _obscure = true;
+  int _adminTab = 0;
 
   Future<void> _createCustomer() async {
     final business = _business.text.trim();
@@ -776,21 +776,17 @@ class _AdminPanelState extends State<AdminPanel> {
       ),
       body: Column(
         children: [
-          Material(
-            color: Colors.white,
-            child: TabBar(
-              onTap: (index) => setState(() => _adminTab = index),
-              tabs: const [
-                Tab(icon: Icon(Icons.people_alt_outlined), text: 'Customers'),
-                Tab(icon: Icon(Icons.notifications_active_outlined), text: 'දැනුම්දීම්'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Row(
+              children: [
+                Expanded(child: FilledButton.icon(onPressed: () => setState(() => _adminTab = 0), icon: const Icon(Icons.people_alt_outlined), label: const Text('Customers'))),
+                const SizedBox(width: 10),
+                Expanded(child: OutlinedButton.icon(onPressed: () => setState(() => _adminTab = 1), icon: const Icon(Icons.notifications_active_outlined), label: const Text('දැනුම්දීම්'))),
               ],
             ),
           ),
-          Expanded(
-            child: IndexedStack(
-              index: _adminTab,
-              children: [
-                ListView(
+          Expanded(child: IndexedStack(index: _adminTab, children: [ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Container(
@@ -866,149 +862,52 @@ class _AdminPanelState extends State<AdminPanel> {
                         tooltip: 'Customer Password Reset',
                         onPressed: () => _resetCustomerPassword(
                           (d['email'] ?? '').toString(),
-                          (d['businessName'] ?? 'Customer').toString(),
-                        ),
-                        icon: const Icon(Icons.lock_reset, color: Colors.blue),class PaymentNotificationPage extends StatefulWidget {
+                          (d['businessNclass PaymentNotificationPage extends StatefulWidget {
   const PaymentNotificationPage({super.key});
-  @override
-  State<PaymentNotificationPage> createState() => _PaymentNotificationPageState();
+  @override State<PaymentNotificationPage> createState() => _PaymentNotificationPageState();
 }
-
 class _PaymentNotificationPageState extends State<PaymentNotificationPage> {
-  String? _customerUid;
-  String _customerName = '';
-  final _message = TextEditingController();
-  final _paymentDate = TextEditingController();
-  bool _sending = false;
-
-  @override
-  void dispose() {
-    _message.dispose();
-    _paymentDate.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 5),
-    );
-    if (picked != null) {
-      _paymentDate.text = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
-      setState(() {});
-    }
-  }
-
+  String? _customerUid; String _customerName=''; final _message=TextEditingController(); final _paymentDate=TextEditingController(); bool _sending=false;
+  @override void dispose(){_message.dispose();_paymentDate.dispose();super.dispose();}
+  Future<void> _pickDate() async { final now=DateTime.now(); final p=await showDatePicker(context:context,initialDate:now,firstDate:DateTime(now.year-1),lastDate:DateTime(now.year+5)); if(p!=null){_paymentDate.text='${p.day.toString().padLeft(2,'0')}/${p.month.toString().padLeft(2,'0')}/${p.year}';setState((){});} }
   Future<void> _send() async {
-    final uid = _customerUid;
-    final message = _message.text.trim();
-    if (uid == null || uid.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('මුලින් Customer කෙනෙක් තෝරන්න.')));
-      return;
-    }
-    if (message.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('දැනුම්දීමේ පණිවිඩය ඇතුළත් කරන්න.')));
-      return;
-    }
-    setState(() => _sending = true);
-    try {
-      await FirebaseFirestore.instance.collection('notifications').add({
-        'customerUid': uid,
-        'customerName': _customerName,
-        'title': '💳 ගෙවීම් මතක් කිරීම',
-        'message': message,
-        'paymentDate': _paymentDate.text.trim(),
-        'read': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      _message.clear();
-      _paymentDate.clear();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ $_customerName වෙත දැනුම්දීම යැව්වා.')));
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('දැනුම්දීම යවන්න බැරි වුණා.\n$e')));
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
+    if(_customerUid==null){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('මුලින් Customer කෙනෙක් තෝරන්න.')));return;}
+    if(_message.text.trim().isEmpty){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('පණිවිඩය ඇතුළත් කරන්න.')));return;}
+    setState(()=>_sending=true);
+    try{
+      await FirebaseFirestore.instance.collection('notifications').add({'customerUid':_customerUid,'customerName':_customerName,'title':'💳 ගෙවීම් මතක් කිරීම','message':_message.text.trim(),'paymentDate':_paymentDate.text.trim(),'read':false,'createdAt':FieldValue.serverTimestamp()});
+      _message.clear();_paymentDate.clear();
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('✅ $_customerName වෙත දැනුම්දීම යැව්වා.')));
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('දැනුම්දීම යවන්න බැරි වුණා.\n$e')));}
+    finally{if(mounted)setState(()=>_sending=false);}
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('customers').orderBy('createdAt', descending: true).snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) return Center(child: Padding(padding: const EdgeInsets.all(20), child: Text('Customer list error: ${snapshot.error}')));
-        final docs = snapshot.data?.docs ?? [];
-        if (docs.isEmpty) return const Center(child: Text('Customer accounts නැහැ.'));
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text('🔔 Customer Payment Reminder', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    const Text('Customer කෙනෙක් තෝරාගෙන payment date එක සහ message එක manually යවන්න.', style: TextStyle(color: Colors.grey)),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _customerUid,
-                      decoration: const InputDecoration(labelText: 'Customer තෝරන්න', prefixIcon: Icon(Icons.person_outline), border: OutlineInputBorder()),
-                      items: docs.map((doc) {
-                        final d = doc.data();
-                        final name = (d['businessName'] ?? d['shopName'] ?? 'Customer').toString();
-                        return DropdownMenuItem(value: doc.id, child: Text(name));
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        final selected = docs.firstWhere((doc) => doc.id == value);
-                        final d = selected.data();
-                        setState(() {
-                          _customerUid = value;
-                          _customerName = (d['businessName'] ?? d['shopName'] ?? 'Customer').toString();
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _paymentDate,
-                      readOnly: true,
-                      onTap: _pickDate,
-                      decoration: const InputDecoration(labelText: 'Payment Date', hintText: 'දිනය තෝරන්න', prefixIcon: Icon(Icons.calendar_month), border: OutlineInputBorder()),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _message,
-                      maxLines: 4,
-                      decoration: const InputDecoration(labelText: 'දැනුම්දීමේ පණිවිඩය', hintText: 'උදා: ඔබගේ මාසික ගෙවීම 05/10/2026 දිනට ගෙවීමට නියමිතයි.', prefixIcon: Icon(Icons.message_outlined), border: OutlineInputBorder()),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 52,
-                      child: FilledButton.icon(
-                        onPressed: _sending ? null : _send,
-                        icon: _sending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send),
-                        label: Text(_sending ? 'යවමින්...' : '🔔 දැනුම්දීම යවන්න'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
+  @override Widget build(BuildContext context){
+    return StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(
+      stream:FirebaseFirestore.instance.collection('customers').orderBy('createdAt',descending:true).snapshots(),
+      builder:(context,snapshot){
+        if(snapshot.hasError)return Center(child:Text('Customer list error: ${snapshot.error}'));
+        final docs=snapshot.data?.docs??[];
+        if(docs.isEmpty)return const Center(child:Text('Customer accounts නැහැ.'));
+        return ListView(padding:const EdgeInsets.all(16),children:[Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+          const Text('🔔 Customer Payment Reminder',style:TextStyle(fontSize:19,fontWeight:FontWeight.bold)),const SizedBox(height:8),
+          const Text('Customer කෙනෙක් තෝරගෙන payment date එක සහ message එක manually යවන්න.',style:TextStyle(color:Colors.grey)),const SizedBox(height:16),
+          DropdownButtonFormField<String>(value:_customerUid,decoration:const InputDecoration(labelText:'Customer තෝරන්න',prefixIcon:Icon(Icons.person_outline),border:OutlineInputBorder()),
+            items:docs.map((doc){final d=doc.data();final n=(d['businessName']??d['shopName']??'Customer').toString();return DropdownMenuItem(value:doc.id,child:Text(n));}).toList(),
+            onChanged:(v){if(v==null)return;final d=docs.firstWhere((x)=>x.id==v).data();setState(()=>{_customerUid=v,_customerName=(d['businessName']??d['shopName']??'Customer').toString()});}),
+          const SizedBox(height:12),
+          TextField(controller:_paymentDate,readOnly:true,onTap:_pickDate,decoration:const InputDecoration(labelText:'Payment Date',hintText:'දිනය තෝරන්න',prefixIcon:Icon(Icons.calendar_month),border:OutlineInputBorder())),
+          const SizedBox(height:12),
+          TextField(controller:_message,maxLines:4,decoration:const InputDecoration(labelText:'දැනුම්දීමේ පණිවිඩය',hintText:'උදා: ඔබගේ ගෙවීම 05/10/2026 දිනට ගෙවීමට නියමිතයි.',prefixIcon:Icon(Icons.message_outlined),border:OutlineInputBorder())),
+          const SizedBox(height:16),
+          SizedBox(height:52,child:FilledButton.icon(onPressed:_sending?null:_send,icon:_sending?const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.send),label:Text(_sending?'යවමින්...':'🔔 දැනුම්දීම යවන්න'))),
+        ])))]);
+      });
   }
 }
 
-
+ame'] ?? 'Customer').toString(),
+                        ),
+                        icon: const Icon(Icons.lock_reset, color: Colors.blue),
                       ),
                       IconButton(
                         tooltip: 'Remove Customer',
@@ -1025,11 +924,7 @@ class _PaymentNotificationPageState extends State<PaymentNotificationPage> {
             },
           ),
         ],
-      ),
-                const PaymentNotificationPage(),
-              ],
-            ),
-          ),
+      ), const PaymentNotificationPage()])),
         ],
       ),
     );
@@ -1101,20 +996,9 @@ class _HomePageState extends State<HomePage> {
         ),
         centerTitle: true,
         actions: [
-          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance.collection('notifications').where('customerUid', isEqualTo: FirebaseAuth.instance.currentUser?.uid ?? '__none__').snapshots(),
-            builder: (context, snapshot) {
-              final unread = (snapshot.data?.docs ?? []).where((doc) => doc.data()['read'] != true).length;
-              return IconButton(
-                tooltip: 'දැනුම්දීම්',
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerNotificationsPage())),
-                icon: Badge(
-                  isLabelVisible: unread > 0,
-                  label: Text(unread > 99 ? '99+' : unread.toString()),
-                  child: const Icon(Icons.notifications_outlined),
-                ),
-              );
-            },
+          StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(
+            stream:FirebaseFirestore.instance.collection('notifications').where('customerUid',isEqualTo:FirebaseAuth.instance.currentUser?.uid??'__none__').snapshots(),
+            builder:(context,snapshot){final unread=(snapshot.data?.docs??[]).where((d)=>d.data()['read']!=true).length;return IconButton(tooltip:'දැනුම්දීම්',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const CustomerNotificationsPage())),icon:Badge(isLabelVisible:unread>0,label:Text(unread>99?'99+':unread.toString()),child:const Icon(Icons.notifications_outlined)));},
           ),
           IconButton(
             tooltip: 'Logout',
@@ -1137,61 +1021,7 @@ class _HomePageState extends State<HomePage> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Column(
-                crossAxisAlignment: CrossAclass CustomerNotificationsPage extends StatelessWidget {
-  const CustomerNotificationsPage({super.key});
-
-  Future<void> _markRead(DocumentSnapshot<Map<String, dynamic>> doc) async {
-    try { await doc.reference.update({'read': true}); } catch (_) {}
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '__none__';
-    return Scaffold(
-      appBar: AppBar(title: const Text('🔔 දැනුම්දීම්')),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('notifications').where('customerUid', isEqualTo: uid).snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) return Center(child: Text('දැනුම්දීම් ලබාගැනීමේදී දෝෂයක්: ${snapshot.error}'));
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = [...snapshot.data!.docs];
-          docs.sort((a,b) {
-            final at=a.data()['createdAt'], bt=b.data()['createdAt'];
-            final ams=at is Timestamp ? at.millisecondsSinceEpoch : 0;
-            final bms=bt is Timestamp ? bt.millisecondsSinceEpoch : 0;
-            return bms.compareTo(ams);
-          });
-          if (docs.isEmpty) return const Center(child: Text('දැනට දැනුම්දීම් නැහැ.', style: TextStyle(color: Colors.grey)));
-          return ListView.separated(
-            padding: const EdgeInsets.all(14),
-            itemCount: docs.length,
-            separatorBuilder: (_,__) => const SizedBox(height: 8),
-            itemBuilder: (context,index) {
-              final doc=docs[index], d=doc.data(), read=d['read']==true;
-              final title=(d['title']??'දැනුම්දීම').toString();
-              final message=(d['message']??'').toString();
-              final paymentDate=(d['paymentDate']??'').toString();
-              return Card(
-                elevation: read ? 1 : 4,
-                child: ListTile(
-                  onTap: () => _markRead(doc),
-                  leading: CircleAvatar(
-                    backgroundColor: read ? Colors.grey.shade200 : Colors.green.shade100,
-                    child: Icon(read ? Icons.notifications_none : Icons.notifications_active, color: read ? Colors.grey : Colors.green.shade700),
-                  ),
-                  title: Text(title, style: TextStyle(fontWeight: read ? FontWeight.w500 : FontWeight.bold)),
-                  subtitle: Padding(padding: const EdgeInsets.only(top: 6), child: Text(message + (paymentDate.isEmpty ? '' : '\n\n💳 ගෙවීම් දිනය: $paymentDate'))),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-xisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'සුභ දවසක්! 👋',
@@ -1263,7 +1093,24 @@ xisAlignment.start,
               subtitle: 'Purchase / Stock වැඩි කරන්න',
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const PurchasePage()),
+                MaterialPageRoute(builder: (_) => const Purchasclass CustomerNotificationsPage extends StatelessWidget {
+  const CustomerNotificationsPage({super.key});
+  Future<void> _markRead(DocumentSnapshot<Map<String,dynamic>> doc) async {try{await doc.reference.update({'read':true});}catch(_){}}
+  @override Widget build(BuildContext context){
+    final uid=FirebaseAuth.instance.currentUser?.uid??'__none__';
+    return Scaffold(appBar:AppBar(title:const Text('🔔 දැනුම්දීම්')),body:StreamBuilder<QuerySnapshot<Map<String,dynamic>>>(
+      stream:FirebaseFirestore.instance.collection('notifications').where('customerUid',isEqualTo:uid).snapshots(),
+      builder:(context,snapshot){
+        if(snapshot.hasError)return Center(child:Text('දැනුම්දීම් දෝෂයක්: ${snapshot.error}'));
+        if(!snapshot.hasData)return const Center(child:CircularProgressIndicator());
+        final docs=[...snapshot.data!.docs]; docs.sort((a,b){final at=a.data()['createdAt'],bt=b.data()['createdAt'];final am=at is Timestamp?at.millisecondsSinceEpoch:0,bm=bt is Timestamp?bt.millisecondsSinceEpoch:0;return bm.compareTo(am);});
+        if(docs.isEmpty)return const Center(child:Text('දැනට දැනුම්දීම් නැහැ.'));
+        return ListView.separated(padding:const EdgeInsets.all(14),itemCount:docs.length,separatorBuilder:(_,__)=>const SizedBox(height:8),itemBuilder:(context,index){final doc=docs[index],d=doc.data(),read=d['read']==true;final msg=(d['message']??'').toString(),date=(d['paymentDate']??'').toString();return Card(child:ListTile(onTap:()=>_markRead(doc),leading:Icon(read?Icons.notifications_none:Icons.notifications_active,color:read?Colors.grey:Colors.green),title:Text((d['title']??'දැනුම්දීම').toString(),style:TextStyle(fontWeight:read?FontWeight.normal:FontWeight.bold)),subtitle:Text(msg+(date.isEmpty?'':'\n💳 ගෙවීම් දිනය: $date'))));});
+      }));
+  }
+}
+
+ePage()),
               ),
             ),
             const SizedBox(height: 20),
