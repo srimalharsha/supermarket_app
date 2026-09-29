@@ -623,6 +623,86 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
+  Future<void> _claimLegacyProducts(String uid, String businessName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('පරණ භාණ්ඩ මේ Customerට දෙන්නද?'),
+        content: Text(
+          'Owner ID නැති පරණ Products සියල්ල "$businessName" Customerට assign කරනවා.\n\n'
+          'දැනට තිබෙන පරණ product data එක එක් shop එකකට පමණක් අයිති නම් මෙය එක් වරක් කරන්න.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('අවලංගු කරන්න'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Assign කරන්න'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final snapshot = await _allProductsRef().get();
+      final legacy = snapshot.docs.where((doc) {
+        return (doc.data()['ownerUid'] ?? '').toString().trim().isEmpty;
+      }).toList();
+
+      if (legacy.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('පරණ Owner ID නැති Products නැහැ.')),
+          );
+        }
+        return;
+      }
+
+      for (var start = 0; start < legacy.length; start += 400) {
+        final batch = FirebaseFirestore.instance.batch();
+        final end = math.min(start + 400, legacy.length);
+        for (final doc in legacy.sublist(start, end)) {
+          batch.update(doc.reference, {
+            'ownerUid': uid,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+          final data = doc.data();
+          final barcode = (data['barcode'] ?? '').toString().trim();
+          if (barcode.isNotEmpty) {
+            await FirebaseFirestore.instance
+                .collection('productMaster')
+                .doc(barcode)
+                .set({
+                  'barcode': barcode,
+                  'name': (data['name'] ?? '').toString(),
+                  'category': (data['category'] ?? '').toString(),
+                  'imageUrl': (data['imageUrl'] ?? '').toString(),
+                  'imageData': (data['imageData'] ?? '').toString(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                }, SetOptions(merge: true));
+          }
+        }
+        await batch.commit();
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('OK: ${legacy.length} පරණ Product records "$businessName" Customerට assign කළා.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Migration error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _business.dispose(); _owner.dispose(); _email.dispose(); _password.dispose();
@@ -698,6 +778,14 @@ class _AdminPanelState extends State<AdminPanel> {
                           size: 32,
                           color: active ? Colors.green : Colors.grey,
                         ),
+                      ),
+                      IconButton(
+                        tooltip: 'පරණ Products මේ Customerට assign කරන්න',
+                        onPressed: () => _claimLegacyProducts(
+                          doc.id,
+                          (d['businessName'] ?? 'Business').toString(),
+                        ),
+                        icon: const Icon(Icons.move_to_inbox_outlined, color: Colors.orange),
                       ),
                       IconButton(
                         tooltip: 'Remove Customer',
