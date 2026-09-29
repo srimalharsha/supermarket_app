@@ -756,19 +756,6 @@ class HomePage extends StatelessWidget {
         ),
         centerTitle: true,
         actions: [
-          const Padding(
-            padding: EdgeInsets.only(right: 4),
-            child: Center(
-              child: Text(
-                'නිර්මාණය: Srimal Harsha',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey,
-                ),
-              ),
-            ),
-          ),
           IconButton(
             tooltip: 'Logout',
             onPressed: () => _logout(context),
