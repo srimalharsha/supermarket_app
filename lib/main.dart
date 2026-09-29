@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -1716,6 +1717,7 @@ class _AddProductPageState extends State<AddProductPage> {
     }
   }
   Future<void> _saveProduct() async {
+    if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
 
     final buyPrice = double.tryParse(_buyPriceController.text.trim());
@@ -1731,10 +1733,13 @@ class _AddProductPageState extends State<AddProductPage> {
       return;
     }
 
-    setState(() => _saving = true);
+    if (mounted) setState(() => _saving = true);
 
     try {
-      await FirebaseFirestore.instance.collection('products').add({
+      // Keep the user informed while the Firestore write is in progress.
+      _showMessage('⏳ භාණ්ඩය database එකට සුරකිමින්...');
+
+      final data = <String, dynamic>{
         'name': _nameController.text.trim(),
         'imageUrl': _imageUrl.trim(),
         'barcode': _barcodeController.text.trim(),
@@ -1745,10 +1750,21 @@ class _AddProductPageState extends State<AddProductPage> {
         'lowStockLimit': lowStock,
         'expiryDate': _expiryDateController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      // Do not leave the button spinning forever if Firestore is blocked,
+      // offline, or the security rules reject the write.
+      await FirebaseFirestore.instance
+          .collection('products')
+          .add(data)
+          .timeout(
+            const Duration(seconds: 25),
+            onTimeout: () => throw TimeoutException(
+              'Database save එක තත්පර 25ක් ඇතුළත අවසන් වුණේ නැහැ.',
+            ),
+          );
 
       if (!mounted) return;
-      _showMessage('භාණ්ඩය සාර්ථකව සුරැකුවා.');
       _formKey.currentState!.reset();
       _nameController.clear();
       _barcodeController.clear();
@@ -1759,9 +1775,26 @@ class _AddProductPageState extends State<AddProductPage> {
       _stockController.clear();
       _lowStockController.text = '5';
       _expiryDateController.clear();
+
+      _showMessage('✅ භාණ්ඩය සාර්ථකව සුරැකුවා.');
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      _showMessage(
+        '❌ Firebase save error: ${e.code}\n${e.message ?? ''}',
+        isError: true,
+      );
+    } on TimeoutException catch (e) {
+      if (!mounted) return;
+      _showMessage(
+        '❌ ${e.message ?? 'Database save timeout වුණා.'}\nInternet සහ Firestore පරීක්ෂා කරන්න.',
+        isError: true,
+      );
     } catch (e) {
       if (!mounted) return;
-      _showMessage('භාණ්ඩය සුරැකීමේදී දෝෂයක් ඇතිවුණා.', isError: true);
+      _showMessage(
+        '❌ භාණ්ඩය සුරැකීමට නොහැකි වුණා.\n$e',
+        isError: true,
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
