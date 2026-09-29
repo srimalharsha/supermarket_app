@@ -22,6 +22,7 @@ dependencies:
   printing: ^5.14.2
   pdf: ^3.11.3
   share_plus: ^10.1.4
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
