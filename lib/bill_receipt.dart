@@ -11,14 +11,12 @@ class BillReceiptPage extends StatefulWidget {
   const BillReceiptPage({
     super.key,
     required this.billNumber,
-    required this.shopName,
     required this.dateKey,
     required this.items,
     required this.total,
   });
 
   final String billNumber;
-  final String shopName;
   final String dateKey;
   final List<Map<String, dynamic>> items;
   final double total;
@@ -53,7 +51,7 @@ class _BillReceiptPageState extends State<BillReceiptPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            widget.shopName,
+            '🏪 සුපිරි වෙළඳසැල',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800),
           ),
@@ -226,7 +224,7 @@ class _BillReceiptPageState extends State<BillReceiptPage> {
             mimeType: 'image/png',
           ),
         ],
-        text: widget.shopName + ' - බිල්පත ' + widget.billNumber,
+        text: 'සුපිරි වෙළඳසැල - බිල්පත ' + widget.billNumber,
         subject: 'විකුණුම් බිල්පත ' + widget.billNumber,
       );
     } catch (e) {
