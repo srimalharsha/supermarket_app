@@ -2,7 +2,7 @@
 # https://github.com/firebase/firebase-tools
 
 name: Deploy to Firebase Hosting on merge
-# Auto-deploys on every push to main.
+# Auto-deploys on every push to main. Branding: SriHarsha Digital
 
 on:
   push:
