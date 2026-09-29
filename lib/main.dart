@@ -566,26 +566,22 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
-  Future<void> _resetOwnerPassword() async {
-    final user = FirebaseAuth.instance.currentUser;
-    final email = user?.email?.trim() ?? '';
-
-    if (email.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Owner Email එක හමු වුණේ නැහැ.')),
-        );
-      }
+  Future<void> _resetCustomerPassword(String email, String shopName) async {
+    final address = email.trim();
+    if (address.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('මෙම Customerගේ Email එක නැහැ.')),
+      );
       return;
     }
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('🔑 Owner Password Reset'),
+        title: const Text('🔑 Customer Password Reset'),
         content: Text(
-          '$email වෙත Password Reset Email එකක් යවන්නද?\n\n'
-          'Email එකේ link එක open කරලා අලුත් Password එකක් දාන්න පුළුවන්.',
+          '$shopName සඳහා Password Reset Email එකක් යවන්නද?\n\n'
+          'Email එකේ link එක open කරලා Customerට අලුත් Password එකක් දාන්න පුළුවන්.',
         ),
         actions: [
           TextButton(
@@ -603,24 +599,16 @@ class _AdminPanelState extends State<AdminPanel> {
     if (confirmed != true) return;
 
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: address);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Owner Password Reset Email එක යැව්වා. Email Inbox එක පරීක්ෂා කරන්න.'),
-          ),
+          SnackBar(content: Text('✅ $address වෙත Password Reset Email එක යැව්වා.')),
         );
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Password Reset error: ${e.message ?? e.code}')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Password Reset කරන්න බැරි වුණා.\n$e')),
         );
       }
     }
@@ -801,32 +789,6 @@ class _AdminPanelState extends State<AdminPanel> {
             ]),
           ),
           const SizedBox(height: 18),
-          Card(
-            color: Colors.green.shade50,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    '🔑 Owner Account',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Owner Password එක අමතක වුණොත් මෙතැනින් Reset Email එකක් යවන්න.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: _resetOwnerPassword,
-                    icon: const Icon(Icons.lock_reset),
-                    label: const Text('Owner Password Reset'),
-                  ),
-                ],
-              ),
-            ),
-          ),
           const SizedBox(height: 18),
           Card(
             child: Padding(
@@ -882,6 +844,14 @@ class _AdminPanelState extends State<AdminPanel> {
                           (d['businessName'] ?? 'Business').toString(),
                         ),
                         icon: const Icon(Icons.move_to_inbox_outlined, color: Colors.orange),
+                      ),
+                      IconButton(
+                        tooltip: 'Customer Password Reset',
+                        onPressed: () => _resetCustomerPassword(
+                          (d['email'] ?? '').toString(),
+                          (d['businessName'] ?? 'Customer').toString(),
+                        ),
+                        icon: const Icon(Icons.lock_reset, color: Colors.blue),
                       ),
                       IconButton(
                         tooltip: 'Remove Customer',
