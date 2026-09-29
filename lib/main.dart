@@ -1868,7 +1868,13 @@ class _AddProductPageState extends State<AddProductPage> {
       // Keep the user informed while the Firestore write is in progress.
       _showMessage('⏳ භාණ්ඩය database එකට සුරකිමින්...');
 
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUid == null || currentUid.isEmpty) {
+        throw Exception('Customer login session එක හමු වුණේ නැහැ.');
+      }
+
       final data = <String, dynamic>{
+        'ownerUid': currentUid,
         'name': _nameController.text.trim(),
         'imageUrl': _imageUrl.trim(),
         'imageData': _imageData,
@@ -1884,8 +1890,7 @@ class _AddProductPageState extends State<AddProductPage> {
 
       // Do not leave the button spinning forever if Firestore is blocked,
       // offline, or the security rules reject the write.
-      await FirebaseFirestore.instance
-          .collection('products')
+      await _allProductsRef()
           .add(data)
           .timeout(
             const Duration(seconds: 25),
@@ -1893,6 +1898,21 @@ class _AddProductPageState extends State<AddProductPage> {
               'Database save එක තත්පර 25ක් ඇතුළත අවසන් වුණේ නැහැ.',
             ),
           );
+
+      final savedBarcode = _barcodeController.text.trim();
+      if (savedBarcode.isNotEmpty) {
+        await FirebaseFirestore.instance
+            .collection('productMaster')
+            .doc(savedBarcode)
+            .set({
+              'barcode': savedBarcode,
+              'name': _nameController.text.trim(),
+              'category': _categoryController.text.trim(),
+              'imageUrl': _imageUrl.trim(),
+              'imageData': _imageData,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+      }
 
       if (!mounted) return;
       _formKey.currentState!.reset();
