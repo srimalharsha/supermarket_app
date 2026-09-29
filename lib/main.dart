@@ -2864,6 +2864,7 @@ class _NewBillPageState extends State<NewBillPage> {
       final billRef = firestore.collection('bills').doc();
       final salesRef = firestore.collection('dailySales').doc(_todayKey);
       final savedTotal = _total;
+      final shopName = await _getCurrentShopName();
 
       await firestore.runTransaction((transaction) async {
         final latest = <String, DocumentSnapshot<Map<String, dynamic>>>{};
@@ -2900,7 +2901,7 @@ class _NewBillPageState extends State<NewBillPage> {
 
         transaction.set(billRef, {
            'billNumber': billRef.id,
-          'shopName': await _getCurrentShopName(),
+          'shopName': shopName,
           'items': billItems,
           'total': savedTotal,
           'createdAt': FieldValue.serverTimestamp(),
@@ -2935,7 +2936,7 @@ class _NewBillPageState extends State<NewBillPage> {
         MaterialPageRoute(
           builder: (_) => BillReceiptPage(
             billNumber: billRef.id,
-            shopName: await _getCurrentShopName(),
+            shopName: shopName,
             dateKey: _todayKey,
             items: receiptItems,
             total: savedTotal,
