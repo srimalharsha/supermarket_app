@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'firebase_options.dart';
 import 'bill_receipt.dart';
@@ -721,6 +722,16 @@ class HomePage extends StatelessWidget {
     await FirebaseAuth.instance.signOut();
   }
 
+  Future<void> _openWhatsApp() async {
+    final uri = Uri.parse('https://wa.me/94789576303?text=Hello%20SriHarsha%20Digital');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('WhatsApp විවෘත කරන්න බැරි වුණා.')),
+      );
+    }
+  }
+
   void _openAddProduct(BuildContext context) {
     Navigator.push(
       context,
@@ -948,10 +959,36 @@ class HomePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 25),
-            const Center(
-              child: Text(
-                'Supermarket Management System',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+            const SizedBox(height: 8),
+            Center(
+              child: Column(
+                children: [
+                  const Text(
+                    'Powered by SriHarsha Digital',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: _openWhatsApp,
+                    borderRadius: BorderRadius.circular(8),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      child: Text(
+                        'Technology Solutions | WhatsApp: +94 78 957 6303',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
