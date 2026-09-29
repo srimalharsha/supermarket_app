@@ -908,9 +908,9 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 20),
             Row(
               children: [
-                Expanded(child: _MenuCard(icon: Icons.inventory_2, title: 'භාණ්ඩ තොගය', subtitle: 'තොගය', onTap: _openStock)),
+                Expanded(child: _MenuCard(icon: Icons.inventory_2, title: 'භාණ්ඩ තොගය', subtitle: 'තොගය', onTap: () => _openStock(context))),
                 const SizedBox(width: 12),
-                Expanded(child: _MenuCard(icon: Icons.add_box, title: 'අලුත් භාණ්ඩ', subtitle: 'භාණ්ඩ එකතු කරන්න', onTap: _openAddProduct)),
+                Expanded(child: _MenuCard(icon: Icons.add_box, title: 'අලුත් භාණ්ඩ', subtitle: 'භාණ්ඩ එකතු කරන්න', onTap: () => _openAddProduct(context))),
               ],
             ),
             const SizedBox(height: 12),
